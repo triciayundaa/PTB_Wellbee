@@ -3,10 +3,14 @@ package com.example.wellbee.frontend.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
+import com.example.wellbee.ui.theme.WellbeeTheme
 
 @Composable
 fun RegisterScreen(navController: NavHostController) {
@@ -36,9 +40,24 @@ fun RegisterScreen(navController: NavHostController) {
         Button(onClick = { navController.navigate("login") }, modifier = Modifier.fillMaxWidth()) {
             Text("Register")
         }
-
-        TextButton(onClick = { navController.navigate("login") }) {
-            Text("Already have an account? Login")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Already have an Account?",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(modifier = Modifier.width(4.dp)) // memberi sedikit jarak
+            TextButton(onClick = { navController.navigate("login") }) {
+                Text("Login")
+            }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RegisterScreenPreview() {
+    WellbeeTheme {
+        val navController = rememberNavController()
+        RegisterScreen(navController)
     }
 }

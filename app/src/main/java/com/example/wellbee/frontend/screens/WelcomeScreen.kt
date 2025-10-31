@@ -93,7 +93,7 @@ fun WelcomeScreen(navController: NavController) {
 
 @Preview(showBackground = true)
 @Composable
-fun SplashPreview() {
+fun WelcomeScreenPreview() {
     WellbeeTheme {
         val navController = rememberNavController()
         WelcomeScreen(navController)

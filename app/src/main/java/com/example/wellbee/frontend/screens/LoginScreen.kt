@@ -43,9 +43,22 @@ fun LoginScreen(navController: NavHostController) {
         }
 
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { navController.navigate("home") }, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = {
+                if (email.isNotEmpty() && password.isNotEmpty()) {
+                    // nanti ganti dengan proses autentikasi asli
+                    navController.navigate("main") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                } else {
+                    // bisa tambahkan snackbar atau alert
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("Login")
         }
+
 
         Spacer(Modifier.height(8.dp))
         Row(

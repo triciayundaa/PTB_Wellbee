@@ -1,4 +1,4 @@
-package com.example.wellbee.frontend.screens
+package com.example.wellbee.frontend.screens.Home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,11 +9,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.wellbee.frontend.screens.Edukasi.EducationScreen
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GreenAccent
 import com.example.wellbee.ui.theme.GrayBackground
+import com.example.wellbee.ui.theme.WellbeeTheme
 
 @Composable
 fun DashboardContent() {
@@ -82,4 +85,10 @@ fun DashboardContent() {
         }
     }
 }
-
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun PreviewDashboardContent() {
+    WellbeeTheme {
+        DashboardContent()
+    }
+}

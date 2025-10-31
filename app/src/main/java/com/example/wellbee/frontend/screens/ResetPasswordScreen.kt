@@ -7,6 +7,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
+import com.example.wellbee.ui.theme.WellbeeTheme
 
 @Composable
 fun ResetPasswordScreen(navController: NavHostController) {
