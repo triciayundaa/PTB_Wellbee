@@ -18,62 +18,64 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.frontend.components.ArticleCard
 import com.example.wellbee.frontend.components.SearchBar
 import com.example.wellbee.frontend.components.TagChip
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
-import com.example.wellbee.ui.theme.WellbeeTheme
 
 @Composable
-fun EducationScreen(navController: NavController? = null) {
+fun EducationScreen(navController: NavHostController) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Semua") }
 
     val categories = listOf(
-        "Semua",
-        "Kesehatan Mental",
-        "Kesehatan Fisik",
-        "Tips Sehat",
-        "Nutrisi",
-        "Keseimbangan Hidup",
-        "Produktivitas"
+        "Semua", "Kesehatan Mental", "Kesehatan Fisik",
+        "Tips Sehat", "Nutrisi", "Keseimbangan Hidup", "Produktivitas"
     )
 
-    // Data dummy artikel
-    val articles = listOf(
-        ArticleData(
-            title = "Cara Mengatasi Stress Sehari-hari",
-            category = "Kesehatan Mental",
-            readTime = "5 menit",
-            tags = listOf("stress", "mental", "relax"),
-        ),
-        ArticleData(
-            title = "Pola Makan Sehat untuk Aktivitas Padat",
-            category = "Nutrisi",
-            readTime = "4 menit",
-            tags = listOf("makan", "sehat", "gizi"),
-        ),
-        ArticleData(
-            title = "7 Cara Menjaga Postur Tubuh Saat Bekerja",
-            category = "Kesehatan Fisik",
-            readTime = "3 menit",
-            tags = listOf("postur", "fisik", "kerja"),
-        )
-    )
+    // 🔹 Artikel bawaan (statis)
+    val defaultArticles = EducationArticles.articles
 
-    val filteredArticles = articles.filter {
-        (selectedCategory == "Semua" || it.category == selectedCategory) &&
-                (searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true))
+    // 🔹 Artikel buatan user yang statusnya UPLOADED (diambil dari repository publik)
+    val uploadedUserArticles = MyArticleRepository.getUploaded()
+
+    // ==================== FILTERING ====================
+
+    // Filter artikel bawaan
+    val filteredDefault = defaultArticles.filter { article ->
+        val matchCategory =
+            selectedCategory == "Semua" || article.categories.contains(selectedCategory)
+        val matchSearch =
+            searchQuery.isBlank() || article.title.contains(searchQuery, ignoreCase = true)
+        matchCategory && matchSearch
     }
+
+    // Filter artikel user (kategori diambil dari category + tag)
+    val filteredUser = uploadedUserArticles.filter { article ->
+        val userCategories = buildList {
+            add(article.category)
+            if (article.tag.isNotBlank()) add(article.tag)
+        }
+
+        val matchCategory =
+            selectedCategory == "Semua" || userCategories.contains(selectedCategory)
+        val matchSearch =
+            searchQuery.isBlank() || article.title.contains(searchQuery, ignoreCase = true)
+
+        matchCategory && matchSearch
+    }
+
+    // ==================== UI ====================
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(GrayBackground)
     ) {
-        // HEADER
+        // HEADER BIRU
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -82,7 +84,7 @@ fun EducationScreen(navController: NavController? = null) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Education",
+                text = "Edukasi",
                 color = Color.White,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
@@ -118,7 +120,7 @@ fun EducationScreen(navController: NavController? = null) {
 
         Spacer(Modifier.height(16.dp))
 
-        // ARTIKEL TERSIMPAN
+        // ⭐ ARTIKEL TERSIMPAN (Bookmark)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -127,7 +129,9 @@ fun EducationScreen(navController: NavController? = null) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Artikel Tersimpan", fontWeight = FontWeight.Bold)
-            TextButton(onClick = { navController?.navigate("bookmark_screen") }) {
+            TextButton(onClick = {
+                navController.navigate("bookmark")
+            }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Lihat Semua", color = BluePrimary)
                     Icon(
@@ -142,7 +146,9 @@ fun EducationScreen(navController: NavController? = null) {
 
         // ✍️ BUAT ARTIKEL
         OutlinedButton(
-            onClick = { navController?.navigate("create_article") },
+            onClick = {
+                navController.navigate("create_article_meta")
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
@@ -160,7 +166,7 @@ fun EducationScreen(navController: NavController? = null) {
 
         Spacer(Modifier.height(16.dp))
 
-        // ARTIKEL TERBARU
+        // 📰 ARTIKEL TERBARU + ARTIKEL SAYA
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -169,44 +175,60 @@ fun EducationScreen(navController: NavController? = null) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Artikel Terbaru", fontWeight = FontWeight.Bold)
-            TextButton(onClick = { navController?.navigate("noted_screen") }) {
+            TextButton(
+                onClick = {
+                    navController.navigate("my_articles")
+                }
+            ) {
                 Text("Artikel Saya", color = BluePrimary)
             }
         }
 
-        // LIST ARTIKEL
+        // 📚 LIST ARTIKEL (BAWAAN + USER)
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
         ) {
-            items(filteredArticles) { article ->
+            // 1️⃣ Artikel bawaan
+            items(filteredDefault, key = { it.id }) { article ->
                 ArticleCard(
-                    title = "Tidur Berkualitas di Era Digital",
-                    categories = listOf("Kesehatan", "Tidur", "Lifestyle"),
-                    readTime = "5 menit",
-                    imageRes = null,
-                    onBookmarkClick = { /* simpan ke bookmark */ },
-                    onReadMoreClick = { /* navigasi ke detail artikel */ }
+                    articleId = article.id,
+                    title = article.title,
+                    categories = article.categories,
+                    readTime = article.readTime,
+                    imageRes = article.imageRes,
+                    onReadMoreClick = {
+                        navController.navigate("article_detail/${article.id}")
+                    }
                 )
+            }
 
+            // 2️⃣ Artikel user yang di-upload
+            items(filteredUser, key = { it.id }) { article ->
+                val userCategories = buildList {
+                    add(article.category)
+                    if (article.tag.isNotBlank()) add(article.tag)
+                }
+
+                ArticleCard(
+                    articleId = article.id,
+                    title = article.title,
+                    categories = userCategories,
+                    readTime = article.readTime,
+                    imageRes = null, // belum support gambar user
+                    onReadMoreClick = {
+                        navController.navigate("article_detail/${article.id}")
+                    }
+                )
             }
         }
     }
 }
 
-// MODEL DATA ARTIKEL
-data class ArticleData(
-    val title: String,
-    val category: String,
-    val readTime: String,
-    val tags: List<String>
-)
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun PreviewEducationScreen() {
-    WellbeeTheme {
-        EducationScreen()
-    }
+fun EducationScreenPreview() {
+    val nav = rememberNavController()
+    EducationScreen(navController = nav)
 }

@@ -8,3 +8,5 @@ val GreenAccent = Color(0xFF6FD6A0)
 val GrayBackground = Color(0xFFF5F6FA)
 val TextDark = Color(0xFF333333)
 val TextLight = Color(0xFF666666)
+
+val RedAccent = Color(0xFFD32F2F)

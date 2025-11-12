@@ -3,14 +3,12 @@ package com.example.wellbee.frontend.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,22 +17,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.wellbee.frontend.screens.Edukasi.BookmarkManager
 import com.example.wellbee.ui.theme.BluePrimary
+import com.example.wellbee.ui.theme.RedAccent
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ArticleCard(
-    articleId: String,          // 🔹 ID artikel → dipakai untuk bookmark
+fun BookmarkArticleCard(
     imageRes: Int? = null,
     categories: List<String>,
     title: String,
     readTime: String,
+    isRead: Boolean,
+    onDeleteClick: () -> Unit,
     onReadMoreClick: () -> Unit
 ) {
-    // status bookmark selalu diambil dari BookmarkManager
-    val isBookmarked = BookmarkManager.isBookmarked(articleId)
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -70,11 +65,7 @@ fun ArticleCard(
                             tint = Color.Gray,
                             modifier = Modifier.size(40.dp)
                         )
-                        Text(
-                            text = "No Image Available",
-                            color = Color.Gray,
-                            fontSize = 12.sp
-                        )
+                        Text("No Image Available", color = Color.Gray, fontSize = 12.sp)
                     }
                 }
             }
@@ -82,8 +73,7 @@ fun ArticleCard(
             Spacer(Modifier.height(12.dp))
 
             Column(Modifier.padding(horizontal = 16.dp)) {
-
-                // 🔹 Daftar kategori (chip)
+                // 🔹 Kategori
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start
@@ -99,18 +89,17 @@ fun ArticleCard(
 
                 Spacer(Modifier.height(8.dp))
 
-                // 🔹 Judul artikel
+                // 🔹 Judul
                 Text(
                     text = title,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    lineHeight = 20.sp,
                     color = Color.Black
                 )
 
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
 
-                // 🔹 Estimasi waktu baca + tombol bookmark
+                // 🔹 Waktu baca & status baca
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -121,39 +110,44 @@ fun ArticleCard(
                         fontSize = 12.sp,
                         color = Color.Gray
                     )
-                    IconButton(
-                        onClick = {
-                            // toggle global bookmark
-                            BookmarkManager.toggleBookmark(articleId)
-                        }
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked)
-                                Icons.Default.Bookmark
-                            else
-                                Icons.Default.BookmarkBorder,
-                            contentDescription = "Bookmark",
-                            tint = if (isBookmarked) BluePrimary else Color.Gray
-                        )
-                    }
+
+                    Text(
+                        text = if (isRead) "Sudah dibaca" else "Belum dibaca",
+                        color = if (isRead) Color.Gray else RedAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
 
                 Spacer(Modifier.height(12.dp))
 
-                // 🔹 Tombol "Baca Selengkapnya"
-                Button(
-                    onClick = onReadMoreClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
-                    shape = RoundedCornerShape(12.dp)
+                // 🔹 Tombol: Hapus dan Baca Selengkapnya
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "Baca Selengkapnya",
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    OutlinedButton(
+                        onClick = onDeleteClick,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedAccent),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Hapus",
+                            tint = RedAccent
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Hapus", color = RedAccent)
+                    }
+
+                    Button(
+                        onClick = onReadMoreClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Baca Selengkapnya", color = Color.White)
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))

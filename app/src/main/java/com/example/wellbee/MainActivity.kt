@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             WellbeeTheme {
                 val navController = rememberNavController()
-                NavGraph(navController)
+                NavGraph(navController = navController)
             }
         }
     }
