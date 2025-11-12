@@ -5,6 +5,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.wellbee.frontend.screens.Edukasi.EducationScreen
+import com.example.wellbee.frontend.screens.Fisik.PhysicalHealthScreen
+import com.example.wellbee.frontend.screens.Fisik.SportScreen
 
 import com.example.wellbee.frontend.screens.WelcomeScreen
 import com.example.wellbee.frontend.screens.RegisterScreen
@@ -30,6 +32,20 @@ fun NavGraph(navController: NavHostController) {
         composable("education") {
             EducationScreen(navController = navController)
         }
+        // ==== Modul Fisik ====
+//        composable("physical_health") {
+//            PhysicalHealthScreen(navController = navController)
+//        }
+//
+
+
+//        composable("sleep_screen") {
+//            SleepScreen(navController = navController)
+//        }
+//
+//        composable("weight_screen") {
+//            WeightScreen(navController = navController)
+//        }
 
     }
 }

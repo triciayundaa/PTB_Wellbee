@@ -1,5 +1,6 @@
 package com.example.wellbee.frontend.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -13,8 +14,10 @@ import com.example.wellbee.frontend.components.BottomNavigationBar
 import com.example.wellbee.frontend.screens.Fisik.PhysicalHealthScreen
 import com.example.wellbee.frontend.screens.Mental.MentalHealthScreen
 import com.example.wellbee.frontend.screens.Edukasi.EducationScreen
+import com.example.wellbee.frontend.screens.Fisik.SportScreen
 import com.example.wellbee.frontend.screens.Home.HomeScreen
 
+@SuppressLint("ComposableDestinationInComposeScope")
 @Composable
 fun MainScreen(parentNavController: NavHostController) {
     val navController = rememberNavController() // khusus untuk bottom nav di dalam main screen
@@ -30,8 +33,12 @@ fun MainScreen(parentNavController: NavHostController) {
                 composable("home") { HomeScreen() }
                 composable("education") { EducationScreen() }
                 composable("mental") { MentalHealthScreen() }
-                composable("physical") { PhysicalHealthScreen() }
+                composable("physical") { PhysicalHealthScreen(navController) }
+
+                    // 🔥 Tambahkan rute halaman modul fisik
+//                    composable("sleep_screen") { SleepScreen(navController) }
+//                    composable("weight_screen") { WeightScreen(navController) }
+                }
             }
         }
     }
-}
