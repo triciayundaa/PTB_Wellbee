@@ -10,14 +10,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.frontend.components.BottomNavigationBar
+import com.example.wellbee.frontend.navigation.MentalNavGraph
 import com.example.wellbee.frontend.screens.Fisik.PhysicalHealthScreen
-import com.example.wellbee.frontend.screens.Mental.MentalHealthScreen
 import com.example.wellbee.frontend.screens.Edukasi.EducationScreen
 import com.example.wellbee.frontend.screens.Home.HomeScreen
 
 @Composable
 fun MainScreen(parentNavController: NavHostController) {
-    val navController = rememberNavController() // khusus untuk bottom nav di dalam main screen
+    val navController = rememberNavController()
 
     Scaffold(
         bottomBar = { BottomNavigationBar(navController = navController) }
@@ -29,7 +29,9 @@ fun MainScreen(parentNavController: NavHostController) {
             ) {
                 composable("home") { HomeScreen() }
                 composable("education") { EducationScreen() }
-                composable("mental") { MentalHealthScreen() }
+                composable("mental") {
+                    MentalNavGraph(parentNavController = navController)
+                }
                 composable("physical") { PhysicalHealthScreen() }
             }
         }
