@@ -14,29 +14,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.frontend.components.ArticleCard
+import com.example.wellbee.frontend.screens.Edukasi.BookmarkManager
+import com.example.wellbee.frontend.screens.Edukasi.EducationArticles
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GreenAccent
 import com.example.wellbee.ui.theme.GrayBackground
 import com.example.wellbee.ui.theme.WellbeeTheme
 
 @Composable
-fun HomeScreen() {
-    // Dummy data artikel
-    val articles = listOf(
-        Article(
-            title = "Tips Tidur Nyenyak dan Nyaman",
-            category = "Kesehatan Fisik",
-            readTime = "5 menit",
-            imageRes = null // nanti bisa diganti resource drawable
-        ),
-        Article(
-            title = "Menjaga Pola Makan untuk Hidup Sehat",
-            category = "Kesehatan Mental",
-            readTime = "4 menit",
-            imageRes = null
-        )
-    )
+fun HomeScreen(navController: NavHostController) {
+
+    // 👉 Pakai artikel dari modul edukasi
+    val articles = EducationArticles.articles
 
     Column(
         modifier = Modifier
@@ -121,31 +113,29 @@ fun HomeScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(articles) { article ->
+                val isBookmarked = BookmarkManager.isBookmarked(article.id)
+
                 ArticleCard(
-                    title = "Tidur Berkualitas di Era Digital",
-                    categories = listOf("Kesehatan", "Tidur", "Lifestyle"),
-                    readTime = "5 menit",
-                    imageRes = null,
-                    onBookmarkClick = { /* simpan ke bookmark */ },
-                    onReadMoreClick = { /* navigasi ke detail artikel */ }
+                    articleId = article.id,
+                    title = article.title,
+                    categories = article.categories,
+                    readTime = article.readTime,
+                    imageRes = article.imageRes,
+                    onReadMoreClick = {
+                        navController.navigate("article_detail/${article.id}")
+                    }
                 )
             }
+
         }
     }
 }
-
-// Model data sederhana untuk artikel
-data class Article(
-    val title: String,
-    val category: String,
-    val readTime: String,
-    val imageRes: Int? // bisa null dulu
-)
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun PreviewHomeScreen() {
     WellbeeTheme {
-        HomeScreen()
+        val nav = rememberNavController()
+        HomeScreen(navController = nav)
     }
 }

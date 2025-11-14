@@ -57,11 +57,15 @@ dependencies {
     implementation(libs.androidx.material3)
 
     implementation("androidx.navigation:navigation-compose:2.8.3")
-    implementation("androidx.compose.material:material-icons-extended:1.6.8")
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation("com.patrykandpatrick.vico:compose:1.14.0")
     implementation("com.patrykandpatrick.vico:core:1.14.0")
     implementation("com.patrykandpatrick.vico:views:1.14.0")
+
+    implementation("com.google.accompanist:accompanist-navigation-animation:0.32.0")
+
+    implementation("androidx.compose.animation:animation")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

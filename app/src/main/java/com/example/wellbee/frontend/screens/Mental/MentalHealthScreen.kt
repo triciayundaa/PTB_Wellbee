@@ -281,5 +281,3 @@ fun MentalHealthScreen(navController: NavHostController) {
         }
     }
 }
-
-annotation class MentalHealthScreen
