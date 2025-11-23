@@ -57,15 +57,19 @@ dependencies {
     implementation(libs.androidx.material3)
 
     implementation("androidx.navigation:navigation-compose:2.8.3")
-    implementation("androidx.compose.material:material-icons-extended")
 
+    // ==== FROM HEAD (MAIN) ====
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("com.patrykandpatrick.vico:compose:1.14.0")
     implementation("com.patrykandpatrick.vico:core:1.14.0")
     implementation("com.patrykandpatrick.vico:views:1.14.0")
-
     implementation("com.google.accompanist:accompanist-navigation-animation:0.32.0")
-
     implementation("androidx.compose.animation:animation")
+
+    // ==== FROM FATHIYA ====
+    implementation("androidx.compose.material3:material3:1.3.0")
+    implementation("androidx.compose.material:material-icons-extended:1.6.8")
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -75,3 +79,4 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+

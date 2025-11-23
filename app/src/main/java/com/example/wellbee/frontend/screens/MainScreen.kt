@@ -12,7 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.frontend.components.BottomNavigationBar
 import com.example.wellbee.frontend.navigation.EducationNavGraph
-import com.example.wellbee.frontend.navigation.MentalNavGraph     // 🔹 dari branch Nailah
+import com.example.wellbee.frontend.navigation.MentalNavGraph
 import com.example.wellbee.frontend.screens.Edukasi.ArticleDetailScreen
 import com.example.wellbee.frontend.screens.Edukasi.EducationArticles
 import com.example.wellbee.frontend.screens.Edukasi.MyArticleRepository
@@ -23,7 +23,7 @@ import com.example.wellbee.frontend.screens.Home.HomeScreen
 @Composable
 fun MainScreen(parentNavController: NavHostController) {
 
-    // nav controller untuk bottom nav
+    // nav controller untuk bottom navigation
     val bottomNavController = rememberNavController()
 
     Scaffold(
@@ -35,29 +35,31 @@ fun MainScreen(parentNavController: NavHostController) {
                 navController = bottomNavController,
                 startDestination = "home"
             ) {
+
                 // HOME
                 composable("home") {
                     HomeScreen(navController = bottomNavController)
                 }
 
-                // EDUCATION
+                // EDUCATION - pakai NavGraph dari Trici
                 composable("education") {
                     EducationNavGraph()
                 }
 
-                // MENTAL (ambil dari branch Nailah)
+                // MENTAL - pakai NavGraph dari Nailah
                 composable("mental") {
                     MentalNavGraph(parentNavController = bottomNavController)
                 }
 
                 // PHYSICAL
                 composable("physical") {
-                    PhysicalHealthScreen()
+                    PhysicalHealthScreen(parentNavController = bottomNavController)
                 }
 
-                // ======================
-                // ARTICLE DETAIL ROUTE
-                // ======================
+
+                // ================
+                // ARTICLE DETAIL
+                // ================
                 composable(
                     route = "article_detail/{articleId}"
                 ) { backStackEntry ->
