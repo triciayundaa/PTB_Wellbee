@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -17,18 +18,28 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.frontend.components.ArticleCard
-import com.example.wellbee.frontend.screens.Edukasi.BookmarkManager
-import com.example.wellbee.frontend.screens.Edukasi.EducationArticles
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GreenAccent
 import com.example.wellbee.ui.theme.GrayBackground
 import com.example.wellbee.ui.theme.WellbeeTheme
+import com.example.wellbee.data.model.EducationViewModel
+import com.example.wellbee.data.model.PublicArticleDto
 
 @Composable
 fun HomeScreen(navController: NavHostController) {
 
-    // 👉 Pakai artikel dari modul edukasi
-    val articles = EducationArticles.articles
+    val context = LocalContext.current
+    // Pakai ViewModel yang sama dengan EducationScreen
+    val viewModel = remember { EducationViewModel(context) }
+
+    val articles: List<PublicArticleDto> = viewModel.articles
+    val isLoading = viewModel.isLoading
+    val errorMessage = viewModel.errorMessage
+
+    // Muat artikel saat pertama kali masuk Home
+    LaunchedEffect(Unit) {
+        viewModel.loadArticles()
+    }
 
     Column(
         modifier = Modifier
@@ -107,26 +118,60 @@ fun HomeScreen(navController: NavHostController) {
             fontWeight = FontWeight.Bold
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(articles) { article ->
-                val isBookmarked = BookmarkManager.isBookmarked(article.id)
-
-                ArticleCard(
-                    articleId = article.id,
-                    title = article.title,
-                    categories = article.categories,
-                    readTime = article.readTime,
-                    imageRes = article.imageRes,
-                    onReadMoreClick = {
-                        navController.navigate("article_detail/${article.id}")
-                    }
-                )
+        // ================= LIST ARTIKEL / LOADING / ERROR =================
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BluePrimary)
+                }
             }
 
+            errorMessage != null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = errorMessage,
+                        color = Color.Red
+                    )
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Tampilkan misalnya 5 artikel terbaru saja
+                    items(articles.take(5)) { article ->
+
+                        // Parsing tag seperti di EducationScreen
+                        val artikelTags = article.tag
+                            ?.split(",")
+                            ?.map { it.trim() }
+                            ?.filter { it.isNotEmpty() }
+                            ?: emptyList()
+
+                        ArticleCard(
+                            articleId = article.id.toString(),
+                            imageUrl = article.gambarUrl,           // URL sudah diproses di repository
+                            categories = artikelTags,
+                            title = article.judul,
+                            readTime = article.waktuBaca ?: "-",
+                            onReadMoreClick = {
+                                navController.navigate("article_detail/${article.id}")
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }

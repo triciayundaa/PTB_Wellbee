@@ -6,13 +6,13 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    // Ganti 10.0.2.2 jika pakai Emulator.
-    // Ganti dengan IP Laptop (misal 192.168.1.x) jika pakai HP fisik.
-    private const val BASE_URL = "http://192.168.110.218:3000/"
+
+    // KARENA TIDAK ADA /api DI ROUTE, CUKUP SEPERTI INI:
+    private const val BASE_URL = "http://10.180.186.27:3000/"
 
     fun getInstance(context: Context): ApiService {
         val client = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(context)) // Pasang interceptor token
+            .addInterceptor(AuthInterceptor(context))
             .build()
 
         return Retrofit.Builder()

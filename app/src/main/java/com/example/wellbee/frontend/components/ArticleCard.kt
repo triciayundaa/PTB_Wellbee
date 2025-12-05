@@ -1,24 +1,30 @@
 package com.example.wellbee.frontend.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.wellbee.frontend.screens.Edukasi.BookmarkManager
 import com.example.wellbee.ui.theme.BluePrimary
 
@@ -26,7 +32,7 @@ import com.example.wellbee.ui.theme.BluePrimary
 @Composable
 fun ArticleCard(
     articleId: String,          // 🔹 ID artikel → dipakai untuk bookmark
-    imageRes: Int? = null,
+    imageUrl: String?,          // 🔹 URL gambar dari backend (sudah full)
     categories: List<String>,
     title: String,
     readTime: String,
@@ -52,10 +58,13 @@ fun ArticleCard(
                     .background(Color(0xFFE0E0E0)),
                 contentAlignment = Alignment.Center
             ) {
-                if (imageRes != null) {
-                    Image(
-                        painter = painterResource(id = imageRes),
-                        contentDescription = null,
+                if (!imageUrl.isNullOrBlank()) {
+                    // Debug kecil ke Logcat (bisa kamu hapus nanti)
+                    println("ArticleCard imageUrl = $imageUrl")
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Gambar artikel $title",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -83,7 +92,7 @@ fun ArticleCard(
 
             Column(Modifier.padding(horizontal = 16.dp)) {
 
-                // 🔹 Daftar kategori (chip)
+                // 🔹 Daftar kategori/tag (chip)
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start

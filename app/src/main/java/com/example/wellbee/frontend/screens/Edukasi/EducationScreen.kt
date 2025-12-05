@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -25,45 +26,47 @@ import com.example.wellbee.frontend.components.SearchBar
 import com.example.wellbee.frontend.components.TagChip
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
+import com.example.wellbee.data.model.EducationViewModel
+import com.example.wellbee.data.model.PublicArticleDto
 
 @Composable
 fun EducationScreen(navController: NavHostController) {
+    val context = LocalContext.current
+
+    // ViewModel sederhana (tanpa Hilt dulu)
+    val viewModel = remember { EducationViewModel(context) }
+
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Semua") }
 
-    val categories = listOf(
-        "Semua", "Kesehatan Mental", "Kesehatan Fisik",
-        "Tips Sehat", "Nutrisi", "Keseimbangan Hidup", "Produktivitas"
-    )
+    val articles: List<PublicArticleDto> = viewModel.articles
+    val isLoading = viewModel.isLoading
+    val errorMessage = viewModel.errorMessage
 
-    // 🔹 Artikel bawaan (statis)
-    val defaultArticles = EducationArticles.articles
-
-    // 🔹 Artikel buatan user yang statusnya UPLOADED (diambil dari repository publik)
-    val uploadedUserArticles = MyArticleRepository.getUploaded()
-
-    // ==================== FILTERING ====================
-
-    // Filter artikel bawaan
-    val filteredDefault = defaultArticles.filter { article ->
-        val matchCategory =
-            selectedCategory == "Semua" || article.categories.contains(selectedCategory)
-        val matchSearch =
-            searchQuery.isBlank() || article.title.contains(searchQuery, ignoreCase = true)
-        matchCategory && matchSearch
+    // ✅ kategori dari backend
+    val backendCategories = viewModel.categories
+    val categories = remember(backendCategories) {
+        // tambahkan "Semua" di depan
+        listOf("Semua") + backendCategories
     }
 
-    // Filter artikel user (kategori diambil dari category + tag)
-    val filteredUser = uploadedUserArticles.filter { article ->
-        val userCategories = buildList {
-            add(article.category)
-            if (article.tag.isNotBlank()) add(article.tag)
-        }
+    // Panggil API saat pertama kali masuk screen
+    LaunchedEffect(Unit) {
+        viewModel.loadArticles()
+        viewModel.loadCategories()
+    }
 
+    // ==================== FILTERING (berbasis kategori & judul) ====================
+
+    val filteredArticles = articles.filter { article ->
         val matchCategory =
-            selectedCategory == "Semua" || userCategories.contains(selectedCategory)
+            selectedCategory == "Semua" ||
+                    (article.kategori != null &&
+                            article.kategori.equals(selectedCategory, ignoreCase = true))
+
         val matchSearch =
-            searchQuery.isBlank() || article.title.contains(searchQuery, ignoreCase = true)
+            searchQuery.isBlank() ||
+                    article.judul.contains(searchQuery, ignoreCase = true)
 
         matchCategory && matchSearch
     }
@@ -103,7 +106,7 @@ fun EducationScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(12.dp))
 
-        // 🏷️ KATEGORI
+        // 🏷️ KATEGORI (dari backend)
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -184,43 +187,59 @@ fun EducationScreen(navController: NavHostController) {
             }
         }
 
-        // 📚 LIST ARTIKEL (BAWAAN + USER)
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            // 1️⃣ Artikel bawaan
-            items(filteredDefault, key = { it.id }) { article ->
-                ArticleCard(
-                    articleId = article.id,
-                    title = article.title,
-                    categories = article.categories,
-                    readTime = article.readTime,
-                    imageRes = article.imageRes,
-                    onReadMoreClick = {
-                        navController.navigate("article_detail/${article.id}")
-                    }
-                )
+        // ==================== LIST ARTIKEL / LOADING / ERROR ====================
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BluePrimary)
+                }
             }
 
-            // 2️⃣ Artikel user yang di-upload
-            items(filteredUser, key = { it.id }) { article ->
-                val userCategories = buildList {
-                    add(article.category)
-                    if (article.tag.isNotBlank()) add(article.tag)
+            errorMessage != null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = errorMessage,
+                        color = Color.Red
+                    )
                 }
+            }
 
-                ArticleCard(
-                    articleId = article.id,
-                    title = article.title,
-                    categories = userCategories,
-                    readTime = article.readTime,
-                    imageRes = null, // belum support gambar user
-                    onReadMoreClick = {
-                        navController.navigate("article_detail/${article.id}")
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    items(filteredArticles, key = { it.id }) { article ->
+
+                        // ✅ Tag untuk ditampilkan di kartu (bisa multi tag dipisah koma)
+                        val artikelTags = article.tag
+                            ?.split(",")
+                            ?.map { it.trim() }
+                            ?.filter { it.isNotEmpty() }
+                            ?: emptyList()
+
+                        ArticleCard(
+                            articleId = article.id.toString(),
+                            imageUrl = article.gambarUrl,
+                            categories = artikelTags,
+                            title = article.judul,
+                            readTime = article.waktuBaca ?: "-",
+                            onReadMoreClick = {
+                                navController.navigate("article_detail/${article.id}")
+                            }
+                        )
+
                     }
-                )
+                }
             }
         }
     }

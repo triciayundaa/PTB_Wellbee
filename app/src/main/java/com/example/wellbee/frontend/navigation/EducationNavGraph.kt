@@ -90,15 +90,21 @@ fun EducationNavGraph() {
         }
 
         // 🔹 STEP 3 – CreateArticlePreviewScreen
-        //    articleId opsional juga (diteruskan terus dari content)
+        //    imageUri & articleId sebagai query parameter (aman untuk URI)
         composable(
-            route = "create_article_preview/{category}/{readTime}/{tag}/{title}/{content}?articleId={articleId}",
+            route = "create_article_preview/{category}/{readTime}/{tag}/{title}/{content}" +
+                    "?imageUri={imageUri}&articleId={articleId}",
             arguments = listOf(
                 navArgument("category") { type = NavType.StringType },
                 navArgument("readTime") { type = NavType.StringType },
                 navArgument("tag") { type = NavType.StringType },
                 navArgument("title") { type = NavType.StringType },
                 navArgument("content") { type = NavType.StringType },
+                navArgument("imageUri") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
                 navArgument("articleId") {
                     type = NavType.StringType
                     nullable = true
@@ -111,7 +117,12 @@ fun EducationNavGraph() {
             val tag = backStackEntry.arguments?.getString("tag") ?: ""
             val title = backStackEntry.arguments?.getString("title") ?: ""
             val content = backStackEntry.arguments?.getString("content") ?: ""
+
+            val imageUriRaw = backStackEntry.arguments?.getString("imageUri")
             val articleId = backStackEntry.arguments?.getString("articleId")
+
+            // kalau imageUri kosong string => anggap null
+            val imageUri = imageUriRaw?.takeIf { it.isNotBlank() }
 
             CreateArticlePreviewScreen(
                 navController = eduNavController,
@@ -120,6 +131,7 @@ fun EducationNavGraph() {
                 tag = tag,
                 title = title,
                 content = content,
+                imageUri = imageUri,
                 articleId = articleId
             )
         }
@@ -148,7 +160,6 @@ fun EducationNavGraph() {
                         readTime = articleStatic.readTime,
                         imageRes = articleStatic.imageRes,
                         content = articleStatic.content
-                        // isUserArticle / authorName / uploadedDate pakai default (null)
                     )
                 }
 

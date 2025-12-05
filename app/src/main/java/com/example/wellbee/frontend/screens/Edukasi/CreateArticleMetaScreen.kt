@@ -13,21 +13,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.EducationTopBarWithBack
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateArticleMetaScreen(
     navController: NavHostController,
-    articleId: String? = null    // 🔹 null = buat baru, ada value = edit
+    articleId: String? = null    // null = buat baru, ada value = edit
 ) {
+    val context = LocalContext.current
+    val viewModel = remember { EducationViewModel(context) }
+
     var category by remember { mutableStateOf("") }
     var readTime by remember { mutableStateOf("") }
     var tag by remember { mutableStateOf("") }
@@ -35,6 +41,11 @@ fun CreateArticleMetaScreen(
     var categoryError by remember { mutableStateOf<String?>(null) }
     var readTimeError by remember { mutableStateOf<String?>(null) }
     var tagError by remember { mutableStateOf<String?>(null) }
+
+    // 🔹 Ambil kategori dari backend saat pertama kali masuk screen
+    LaunchedEffect(Unit) {
+        viewModel.loadCategories()
+    }
 
     // 🔹 Prefill kalau edit
     LaunchedEffect(articleId) {
@@ -47,6 +58,23 @@ fun CreateArticleMetaScreen(
             }
         }
     }
+
+    // 🔹 List kategori: kalau backend kosong, pakai fallback lokal
+    val backendCategories = viewModel.categories
+    val categoryOptions = if (backendCategories.isNotEmpty()) {
+        backendCategories
+    } else {
+        listOf(
+            "Kesehatan Mental",
+            "Kesehatan Fisik",
+            "Tips Sehat",
+            "Nutrisi",
+            "Keseimbangan Hidup",
+            "Produktivitas"
+        )
+    }
+
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -90,30 +118,57 @@ fun CreateArticleMetaScreen(
                         .fillMaxWidth()
                         .padding(20.dp)
                 ) {
-                    // KATEGORI ARTIKEL
+                    // ================== KATEGORI ARTIKEL (DROPDOWN) ==================
                     Text(
                         text = "Kategori Artikel",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
                     )
                     Spacer(Modifier.height(6.dp))
-                    TextField(
-                        value = category,
-                        onValueChange = {
-                            category = it
-                            categoryError = null
-                        },
-                        singleLine = true,
-                        placeholder = { Text("Tips Produktif") },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+
+                    ExposedDropdownMenuBox(
+                        expanded = categoryDropdownExpanded,
+                        onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded }
+                    ) {
+                        TextField(
+                            value = category,
+                            onValueChange = { /* readOnly, jadi kosongkan */ },
+                            readOnly = true,
+                            placeholder = { Text("Pilih kategori") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(
+                                    expanded = categoryDropdownExpanded
+                                )
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = categoryDropdownExpanded,
+                            onDismissRequest = { categoryDropdownExpanded = false }
+                        ) {
+                            categoryOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        category = option
+                                        categoryError = null
+                                        categoryDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     if (categoryError != null) {
                         Text(
                             text = categoryError!!,
@@ -125,7 +180,7 @@ fun CreateArticleMetaScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // ESTIMASI WAKTU BACA
+                    // ================== ESTIMASI WAKTU BACA ==================
                     Text(
                         text = "Estimasi waktu baca",
                         fontWeight = FontWeight.SemiBold,
@@ -160,7 +215,7 @@ fun CreateArticleMetaScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // TAGAR
+                    // ================== TAGAR ==================
                     Text(
                         text = "Tagar",
                         fontWeight = FontWeight.SemiBold,
@@ -218,7 +273,7 @@ fun CreateArticleMetaScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // TOMBOL LANJUTKAN
+            // ================== TOMBOL LANJUTKAN ==================
             Row(
                 modifier = Modifier
                     .fillMaxWidth(),

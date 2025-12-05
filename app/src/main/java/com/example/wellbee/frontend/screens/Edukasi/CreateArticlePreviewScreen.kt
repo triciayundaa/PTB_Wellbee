@@ -1,5 +1,6 @@
 package com.example.wellbee.frontend.screens.Edukasi
 
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,13 +10,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.wellbee.R
+import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.EducationTopBarWithBack
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
@@ -36,9 +38,26 @@ fun CreateArticlePreviewScreen(
     tag: String,
     title: String,
     content: String,
-    articleId: String? = null   // 🔹 diturunkan dari Content (opsional)
+    imageUri: String? = null,
+    articleId: String? = null
 ) {
+    val context = LocalContext.current
+    val viewModel = remember { EducationViewModel(context) }
+
     val showInfo = remember { mutableStateOf<String?>(null) }
+
+    // 🔹 Pantau status upload dari ViewModel
+    LaunchedEffect(viewModel.uploadStatus) {
+        when (viewModel.uploadStatus) {
+            "SUCCESS" -> {
+                navController.navigate("education_list") {
+                    popUpTo("education_list") { inclusive = false }
+                }
+            }
+            "FAILED" -> showInfo.value = "Gagal mengupload artikel."
+            "ERROR" -> showInfo.value = "Terjadi kesalahan saat upload."
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -66,7 +85,7 @@ fun CreateArticlePreviewScreen(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
 
-                        // 🔹 SIMPAN SEBAGAI DRAFT → lanjut ke MyArticlesScreen
+                        // 🔹 SIMPAN SEBAGAI DRAFT (masih lokal seperti semula)
                         TextButton(
                             onClick = {
                                 MyArticleRepository.upsertFromPreview(
@@ -89,21 +108,20 @@ fun CreateArticlePreviewScreen(
                             Text("Tambahkan draft", color = Color.White)
                         }
 
-                        // 🔹 UPLOAD ARTIKEL → simpan & balik ke Education
+                        // 🔹 UPLOAD KE BACKEND (artikel + gambar kalau ada)
                         IconButton(
                             onClick = {
-                                MyArticleRepository.upsertFromPreview(
-                                    category = category,
+                                val uriObj = if (!imageUri.isNullOrBlank()) {
+                                    Uri.parse(imageUri)
+                                } else null
+
+                                viewModel.uploadArticleWithImage(
+                                    imageUri = uriObj,
+                                    kategori = category,
                                     readTime = readTime,
                                     tag = tag,
                                     title = title,
-                                    content = content,
-                                    status = MyArticleStatus.UPLOADED
-                                )
-
-                                navController.popBackStack(
-                                    "education_list",
-                                    inclusive = false
+                                    content = content
                                 )
                             }
                         ) {
@@ -140,14 +158,27 @@ fun CreateArticlePreviewScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp),
-                        contentScale = ContentScale.Crop
-                    )
+                    // 🔹 Gambar dari URI kalau ada, kalau tidak pakai dummy
+                    if (!imageUri.isNullOrBlank()) {
+                        val uri = remember(imageUri) { Uri.parse(imageUri) }
+                        Image(
+                            painter = rememberAsyncImagePainter(model = uri),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
 
                     Spacer(Modifier.height(16.dp))
 
@@ -246,10 +277,7 @@ fun CreateArticlePreviewScreenPreview() {
         readTime = "5 menit",
         tag = "Produktif",
         title = "Tips Tidur Nyenyak dan Nyaman",
-        content = """
-            Ini adalah contoh isi artikel untuk preview.
-
-            Kamu bisa menulis beberapa paragraf di sini agar tampilan preview mirip dengan artikel asli.
-        """.trimIndent()
+        content = "Ini contoh isi artikel",
+        imageUri = null
     )
 }

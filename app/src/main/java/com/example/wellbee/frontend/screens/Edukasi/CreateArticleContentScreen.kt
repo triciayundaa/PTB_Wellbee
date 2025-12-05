@@ -39,7 +39,7 @@ fun CreateArticleContentScreen(
     var titleError by remember { mutableStateOf<String?>(null) }
     var contentError by remember { mutableStateOf<String?>(null) }
 
-    // 🔹 URI gambar yang dipilih user (belum disimpan ke repo, hanya UI)
+    // 🔹 URI gambar yang dipilih user (hanya untuk UI & nanti di-pass ke Preview)
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -55,6 +55,7 @@ fun CreateArticleContentScreen(
             if (article != null) {
                 title = article.title
                 content = article.content
+                // kalau kamu sudah simpan URL gambar di MyArticleRepository, bisa decode ke Uri di sini
             }
         }
     }
@@ -238,11 +239,17 @@ fun CreateArticleContentScreen(
                             val titleArg = Uri.encode(title)
                             val contentArg = Uri.encode(content)
 
+                            // 🔹 encode URI gambar (boleh kosong kalau belum pilih)
+                            val imageArg = Uri.encode(
+                                selectedImageUri?.toString() ?: ""
+                            )
+
                             val baseRoute =
-                                "create_article_preview/$catArg/$readArg/$tagArg/$titleArg/$contentArg"
+                                "create_article_preview/$catArg/$readArg/$tagArg/$titleArg/$contentArg" +
+                                        "?imageUri=$imageArg"
 
                             val fullRoute = if (articleId != null) {
-                                baseRoute + "?articleId=" + Uri.encode(articleId)
+                                baseRoute + "&articleId=" + Uri.encode(articleId)
                             } else {
                                 baseRoute
                             }
