@@ -28,15 +28,14 @@ import androidx.navigation.NavHostController
 import com.example.wellbee.data.RetrofitClient
 import com.example.wellbee.data.model.SportRequest
 import com.example.wellbee.data.model.SportResponse
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
 fun SportScreen(navController: NavHostController) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
 
     // ===== State Input =====
     var jenisOlahraga by remember { mutableStateOf("") }
@@ -48,7 +47,7 @@ fun SportScreen(navController: NavHostController) {
     var isLoading by remember { mutableStateOf(false) } // Untuk loading spinner
 
     // User ID Hardcode sementara (Ganti nanti jika sudah ada login session)
-    val currentUserId = "user_123"
+//    val currentUserId = "user_123"
     val USER_WEIGHT_KG = 60.0
 
     // Recalc kalori setiap jenis/durasi berubah
@@ -194,15 +193,16 @@ fun SportScreen(navController: NavHostController) {
             // Tombol Simpan (Dengan Logika Backend)
             Button(
                 onClick = {
-                    // 1. Validasi Input
                     if (jenisOlahraga.isEmpty() || durasi.isEmpty()) {
                         Toast.makeText(context, "Mohon isi jenis & durasi!", Toast.LENGTH_SHORT).show()
                     } else {
                         isLoading = true
 
-                        // 2. Siapkan Data (Bersihkan string)
                         val kaloriInt = kalori.replace(" kcal", "").trim().toIntOrNull() ?: 0
                         val durasiInt = durasi.toIntOrNull() ?: 0
+                        val prefs = context.getSharedPreferences("wellbee_prefs", Context.MODE_PRIVATE)
+                        val currentUserId = prefs.getInt("user_id", -1)
+
 
                         val request = SportRequest(
                             userId = currentUserId,
@@ -211,35 +211,33 @@ fun SportScreen(navController: NavHostController) {
                             kaloriTerbakar = kaloriInt
                         )
 
-                        // 3. Panggil API Backend
-                        RetrofitClient.getInstance(context).catatOlahraga(request).enqueue(object : Callback<SportResponse> {
-                            override fun onResponse(call: Call<SportResponse>, response: Response<SportResponse>) {
+                        scope.launch {
+                            try {
+                                val api = RetrofitClient.getInstance(context)
+                                val response = api.catatOlahraga(request)
+
                                 isLoading = false
+
                                 if (response.isSuccessful) {
                                     Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-
-                                    // Reset Form
                                     jenisOlahraga = ""
                                     durasi = ""
-
-                                    // Opsional: Kembali ke dashboard setelah sukses
-                                    // navController.popBackStack()
+                                    kalori = ""
                                 } else {
                                     Toast.makeText(context, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
                                 }
-                            }
 
-                            override fun onFailure(call: Call<SportResponse>, t: Throwable) {
+                            } catch (e: Exception) {
                                 isLoading = false
-                                Toast.makeText(context, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
-                        })
+                        }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4)),
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(10.dp),
-                enabled = !isLoading // Disable tombol biar gak di-klik 2x
+                enabled = !isLoading
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
@@ -247,6 +245,9 @@ fun SportScreen(navController: NavHostController) {
                     Text("Simpan", color = Color.White)
                 }
             }
+
+
+
         }
     }
 }

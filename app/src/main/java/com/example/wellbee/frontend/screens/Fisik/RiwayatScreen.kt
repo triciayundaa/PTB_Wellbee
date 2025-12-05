@@ -1,5 +1,6 @@
 package com.example.wellbee.frontend.screens.Fisik
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,10 +14,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.wellbee.data.FisikRepository
+import com.example.wellbee.data.model.SportHistory
+import com.example.wellbee.data.model.SportResponse
 
 @Composable
 fun RiwayatScreen(navController: NavController) {
@@ -111,13 +116,37 @@ fun PilihKategoriScreen() {
 // =============================
 @Composable
 fun SportRiwayatList() {
-    val riwayat = listOf(
-        "Lari" to "30 menit",
-        "Gym" to "45 menit"
-    )
+    val context = LocalContext.current
+    val repo = remember { FisikRepository(context) }
+
+    var data by remember { mutableStateOf<List<SportHistory>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val prefs = context.getSharedPreferences("wellbee_prefs", Context.MODE_PRIVATE)
+    val userId = prefs.getInt("user_id", -1)
+
+    LaunchedEffect(Unit) {
+        val result = repo.getSportHistory(userId)
+        if (result.isSuccess) {
+            data = result.getOrNull()!!
+        } else {
+            errorMessage = result.exceptionOrNull()?.message
+        }
+        isLoading = false
+    }
+
+    if (isLoading) {
+        Text("Loading...", color = Color.Gray)
+        return
+    }
+
+    if (errorMessage != null) {
+        Text("Error: $errorMessage", color = Color.Red)
+        return
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        riwayat.forEach { (nama, durasi) ->
+        data.forEach { item ->
             Card(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -125,22 +154,20 @@ fun SportRiwayatList() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(text = nama, fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4))
-                        Text(text = durasi, color = Color(0xFF00B894))
+                        Text(item.jenisOlahraga, fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4))
+                        Text("${item.durasiMenit} menit", color = Color(0xFF00B894))
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(onClick = { /* TODO edit */ }) {
+                    Row {
+                        IconButton(onClick = {}) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color(0xFF00B894))
                         }
-                        IconButton(onClick = { /* TODO hapus */ }) {
+                        IconButton(onClick = {}) {
                             Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFD63031))
                         }
                     }
@@ -149,6 +176,7 @@ fun SportRiwayatList() {
         }
     }
 }
+
 
 // =============================
 // ======= Sleep Section =======

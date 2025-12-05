@@ -1,11 +1,15 @@
 package com.example.wellbee.data
 
+import com.example.wellbee.data.model.SportHistory
+import com.example.wellbee.data.model.SportModel
 import com.example.wellbee.data.model.SportRequest // Pastikan import sesuai package
 import com.example.wellbee.data.model.SportResponse
 import retrofit2.Response
 import retrofit2.Call
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 // Model data untuk Login (Request & Response)
 data class LoginRequest(
@@ -24,7 +28,15 @@ interface ApiService {
 
     // Endpoint baru untuk olahraga
     @POST("api/fisik/olahraga")
-    fun catatOlahraga(@Body request: SportRequest): Call<SportResponse>
+    suspend fun catatOlahraga(@Body req: SportRequest): Response<SportResponse>
+
+
+    @GET("api/fisik/riwayat/{userId}")
+    suspend fun getSportHistory(
+        @Path("userId") userId: Int
+    ): Response<List<SportHistory>>
+
+
 }
 
 //REGISTER
