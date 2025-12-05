@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -23,7 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.example.wellbee.frontend.components.showDatePicker
+// Import Retrofit dan Model
+import com.example.wellbee.data.RetrofitClient
+import com.example.wellbee.data.model.SportRequest
+import com.example.wellbee.data.model.SportResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import kotlin.math.roundToInt
 
 @Composable
@@ -31,14 +38,17 @@ fun SportScreen(navController: NavHostController) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    // ===== State =====
+    // ===== State Input =====
     var jenisOlahraga by remember { mutableStateOf("") }
-    var durasi by remember { mutableStateOf("") } // menit (string biar gampang input)
+    var durasi by remember { mutableStateOf("") } // string input
     var tanggal by remember { mutableStateOf("") }
     var kalori by remember { mutableStateOf("") } // hasil auto
-    var showDialog by remember { mutableStateOf(false) }
 
-    // Atur berat badan default untuk estimasi (nanti bisa diambil dari DB / profil user)
+    // ===== State UI =====
+    var isLoading by remember { mutableStateOf(false) } // Untuk loading spinner
+
+    // User ID Hardcode sementara (Ganti nanti jika sudah ada login session)
+    val currentUserId = "user_123"
     val USER_WEIGHT_KG = 60.0
 
     // Recalc kalori setiap jenis/durasi berubah
@@ -46,7 +56,6 @@ fun SportScreen(navController: NavHostController) {
         val menit = durasi.toIntOrNull() ?: 0
         kalori = if (menit > 0) {
             val kcal = hitungKaloriTerbakar(jenisOlahraga, menit, USER_WEIGHT_KG)
-            // tampilkan tanpa koma panjang
             "${kcal.roundToInt()} kcal"
         } else ""
     }
@@ -73,85 +82,66 @@ fun SportScreen(navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🏃 Jenis Olahraga (teks hitam)
+        // 🏃 Jenis Olahraga
         OutlinedTextField(
             value = jenisOlahraga,
             onValueChange = { jenisOlahraga = it },
             label = { Text("Jenis Olahraga") },
             placeholder = { Text("Misalnya: Lari, Bersepeda, Yoga...") },
             modifier = Modifier.fillMaxWidth(),
-            textStyle = TextStyle(color = Color.Black), // ✅ teks input hitam
+            textStyle = TextStyle(color = Color.Black),
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF0E4DA4),
                 unfocusedBorderColor = Color.LightGray,
                 cursorColor = Color.Black,
                 focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black,
-                focusedPlaceholderColor = Color.Gray,
-                unfocusedPlaceholderColor = Color.Gray
+                unfocusedTextColor = Color.Black
             )
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ⏱️ Durasi (menit) (teks hitam)
+        // ⏱️ Durasi (menit)
         OutlinedTextField(
             value = durasi,
             onValueChange = { input ->
-                // hanya angka
                 val sanitized = input.filter { it.isDigit() }
                 durasi = sanitized
             },
             label = { Text("Durasi (menit)") },
             placeholder = { Text("Masukkan durasi latihan") },
             modifier = Modifier.fillMaxWidth(),
-            textStyle = TextStyle(color = Color.Black), // ✅ teks input hitam
+            textStyle = TextStyle(color = Color.Black),
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF0E4DA4),
                 unfocusedBorderColor = Color.LightGray,
                 cursorColor = Color.Black,
                 focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black,
-                focusedPlaceholderColor = Color.Gray,
-                unfocusedPlaceholderColor = Color.Gray
+                unfocusedTextColor = Color.Black
             )
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 📅 Tanggal (klik untuk pilih)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-//                    showDatePicker(context) { selectedDate ->
-//                        tanggal = selectedDate
-//                    }
-                }
-        ) {
+        // 📅 Tanggal (Sementara ReadOnly)
+        Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = tanggal,
                 onValueChange = {},
-                label = { Text("Tanggal") },
+                label = { Text("Tanggal (Belum aktif)") },
                 placeholder = { Text("Pilih tanggal latihan") },
                 readOnly = true,
                 enabled = false,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledBorderColor = Color.LightGray,
-                    disabledTextColor = Color.Black,
-                    disabledLabelColor = Color.Gray,
-                    disabledPlaceholderColor = Color.Gray
-                )
+                shape = RoundedCornerShape(10.dp)
             )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 🔥 Kalori Terbakar (otomatis, non-editable)
+        // 🔥 Kalori Terbakar
         OutlinedTextField(
             value = kalori,
             onValueChange = {},
@@ -162,10 +152,8 @@ fun SportScreen(navController: NavHostController) {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                disabledBorderColor = Color.LightGray,
                 disabledTextColor = Color.Black,
-                disabledLabelColor = Color.Gray,
-                disabledPlaceholderColor = Color.Gray
+                disabledBorderColor = Color.LightGray
             )
         )
 
@@ -188,50 +176,77 @@ fun SportScreen(navController: NavHostController) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            // Tombol Batal
             Button(
                 onClick = {
-                    // reset
-                    jenisOlahraga = ""
-                    durasi = ""
-                    tanggal = ""
-                    kalori = ""
-                    navController.navigate("dashboard") {
+                    navController.navigate("dashboard") { // Atau popBackStack()
                         popUpTo("sport_screen") { inclusive = true }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF)),
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                enabled = !isLoading // Disable saat loading
             ) { Text("Batal", color = Color.White) }
 
             Spacer(modifier = Modifier.width(16.dp))
 
+            // Tombol Simpan (Dengan Logika Backend)
             Button(
                 onClick = {
-                    // nanti: simpan ke DB
-                    showDialog = true
+                    // 1. Validasi Input
+                    if (jenisOlahraga.isEmpty() || durasi.isEmpty()) {
+                        Toast.makeText(context, "Mohon isi jenis & durasi!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        isLoading = true
+
+                        // 2. Siapkan Data (Bersihkan string)
+                        val kaloriInt = kalori.replace(" kcal", "").trim().toIntOrNull() ?: 0
+                        val durasiInt = durasi.toIntOrNull() ?: 0
+
+                        val request = SportRequest(
+                            userId = currentUserId,
+                            jenisOlahraga = jenisOlahraga,
+                            durasiMenit = durasiInt,
+                            kaloriTerbakar = kaloriInt
+                        )
+
+                        // 3. Panggil API Backend
+                        RetrofitClient.getInstance(context).catatOlahraga(request).enqueue(object : Callback<SportResponse> {
+                            override fun onResponse(call: Call<SportResponse>, response: Response<SportResponse>) {
+                                isLoading = false
+                                if (response.isSuccessful) {
+                                    Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
+
+                                    // Reset Form
+                                    jenisOlahraga = ""
+                                    durasi = ""
+
+                                    // Opsional: Kembali ke dashboard setelah sukses
+                                    // navController.popBackStack()
+                                } else {
+                                    Toast.makeText(context, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
+                            override fun onFailure(call: Call<SportResponse>, t: Throwable) {
+                                isLoading = false
+                                Toast.makeText(context, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        })
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4)),
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
-            ) { Text("Simpan", color = Color.White) }
-        }
-
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                confirmButton = {
-                    Button(
-                        onClick = { showDialog = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
-                    ) { Text("OK", color = Color.White) }
-                },
-                title = { Text("Berhasil") },
-                text = { Text("Data olahraga berhasil disimpan!") },
-                containerColor = Color.White,
-                tonalElevation = 4.dp,
-                shape = RoundedCornerShape(16.dp)
-            )
+                shape = RoundedCornerShape(10.dp),
+                enabled = !isLoading // Disable tombol biar gak di-klik 2x
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                } else {
+                    Text("Simpan", color = Color.White)
+                }
+            }
         }
     }
 }
@@ -244,8 +259,6 @@ fun openCamera(context: Context) {
 
 /**
  * Hitung kalori terbakar berbasis MET.
- * Rumus: Kalori = MET * 3.5 * berat(kg) / 200 * durasi(menit)
- * Catatan: MET disederhanakan per jenis olahraga.
  */
 fun hitungKaloriTerbakar(jenis: String, durasiMenit: Int, beratKg: Double): Double {
     val met = when (jenis.trim().lowercase()) {
@@ -258,7 +271,7 @@ fun hitungKaloriTerbakar(jenis: String, durasiMenit: Int, beratKg: Double): Doub
         "basket", "basketball" -> 6.5
         "futsal", "sepak bola", "sepakbola" -> 7.0
         "badminton", "bulu tangkis", "bulutangkis" -> 5.5
-        else -> 5.0 // default MET moderat jika jenis tak dikenali
+        else -> 5.0
     }
     return met * 3.5 * beratKg / 200.0 * durasiMenit
 }
