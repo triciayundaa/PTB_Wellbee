@@ -20,84 +20,103 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.wellbee.data.FisikRepository
+import com.example.wellbee.data.model.SleepRequest
 import com.example.wellbee.frontend.components.showTimePicker
-import com.example.wellbee.frontend.components.showDatePicker
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+// --- Palet Warna Lokal ---
+private object SleepColors {
+    val Primary = Color(0xFF0E4DA4)
+    val Secondary = Color(0xFF74B9FF)
+    val Background = Color(0xFFF7F9FB)
+    val Surface = Color.White
+    val SelectedItem = Color(0xFFE0E9FF)
+    val TextPrimary = Color(0xFF0E4DA4)
+}
 
 @Composable
 fun SleepScreen(navController: NavHostController) {
     val context = LocalContext.current
     val activity = context.getActivity()
+    val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
+    // --- State Variables ---
     var tanggal by remember { mutableStateOf("") }
     var jamTidur by remember { mutableStateOf("") }
     var jamBangun by remember { mutableStateOf("") }
     var durasiTidur by remember { mutableStateOf("") }
     var kualitasTidur by remember { mutableStateOf(0) }
-    var showDialog by remember { mutableStateOf(false) }
 
-    val scrollState = rememberScrollState()
+    // --- UI Control States ---
+    var showDialogSuccess by remember { mutableStateOf(false) }
+    var showPickerTidur by remember { mutableStateOf(false) }
+    var showPickerBangun by remember { mutableStateOf(false) }
 
+    // --- Logic Helper ---
+    fun updateDurasi() {
+        durasiTidur = hitungDurasiTidur(jamTidur, jamBangun)
+    }
+
+    // --- Time Pickers Logic ---
+    if (showPickerTidur && activity != null) {
+        showTimePicker(activity) { selected ->
+            jamTidur = selected
+            updateDurasi()
+            showPickerTidur = false
+        }
+    }
+
+    if (showPickerBangun && activity != null) {
+        showTimePicker(activity) { selected ->
+            jamBangun = selected
+            updateDurasi()
+            showPickerBangun = false
+        }
+    }
+
+    // --- Main Layout ---
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(SleepColors.Background)
             .verticalScroll(scrollState)
-            .background(Color(0xFFF7F9FB))
             .padding(16.dp)
     ) {
-        // Judul
+
+        // 1. Header
         Text(
             text = "Catat Kualitas Tidur Kamu",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0E4DA4)
+            color = SleepColors.TextPrimary
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 📅 Tanggal
+        // 2. Form Input Waktu
         DateTimeField(
             label = "Tanggal",
             value = tanggal,
-            onClick = {
-                activity?.let {
-//                    showDatePicker(it) { selectedDate ->
-//                        tanggal = selectedDate
-//                    }
-                }
-            }
+            onClick = { /* Todo: Implement DatePicker */ }
         )
 
-        // 🕒 Jam Tidur
         DateTimeField(
             label = "Jam Tidur",
             value = jamTidur,
-            onClick = {
-                activity?.let {
-                    showTimePicker(it) { selected ->
-                        jamTidur = selected
-                        durasiTidur = hitungDurasiTidur(jamTidur, jamBangun)
-                    }
-                }
-            }
+            onClick = { showPickerTidur = true }
         )
 
-        // ⏰ Jam Bangun
         DateTimeField(
             label = "Jam Bangun",
             value = jamBangun,
-            onClick = {
-                activity?.let {
-                    showTimePicker(it) { selected ->
-                        jamBangun = selected
-                        durasiTidur = hitungDurasiTidur(jamTidur, jamBangun)
-                    }
-                }
-            }
+            onClick = { showPickerBangun = true }
         )
 
-        // 😴 Durasi Tidur (otomatis)
+        // Field Durasi (Read Only)
         OutlinedTextField(
             value = durasiTidur,
             onValueChange = {},
@@ -111,128 +130,159 @@ fun SleepScreen(navController: NavHostController) {
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 disabledBorderColor = Color.LightGray,
-                disabledTextColor = Color.Black
+                disabledTextColor = Color.Black,
+                disabledLabelColor = Color.Gray
             )
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 🌙 Kualitas Tidur → tampil hanya kalau tanggal sudah dipilih
-        if (tanggal.isNotEmpty()) {
-            Text(
-                text = "Kualitas Tidur",
-                fontWeight = FontWeight.SemiBold,
-                color = Color.Black,
-                fontSize = 15.sp
+        // 3. Selector Kualitas Tidur (Hanya muncul jika jam terisi)
+        if (jamTidur.isNotEmpty() && jamBangun.isNotEmpty()) {
+            SleepQualitySelector(
+                selectedQuality = kualitasTidur,
+                onQualitySelected = { kualitasTidur = it }
             )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                val emojis = listOf("😴", "😕", "😐", "🙂", "😄")
-                emojis.forEachIndexed { index, emoji ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { kualitasTidur = index + 1 }
-                            .background(
-                                if (kualitasTidur == index + 1) Color(0xFFE0E9FF)
-                                else Color.Transparent,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(8.dp)
-                    ) {
-                        Text(
-                            text = emoji,
-                            fontSize = 28.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            if (kualitasTidur > 0) {
-                val labels = listOf("Sangat Buruk", "Buruk", "Cukup", "Baik", "Sangat Baik")
-                Text(
-                    text = labels[kualitasTidur - 1],
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Tombol Batal & Simpan
+        // 4. Action Buttons
+        SleepActionButtons(
+            onCancel = { navController.popBackStack() },
+            onSave = {
+                if (jamTidur.isNotEmpty() &&
+                    jamBangun.isNotEmpty() &&
+                    durasiTidur.isNotEmpty()
+                ) {
+
+                    val repo = FisikRepository(context)
+                    val req = SleepRequest(
+                        jamTidur = jamTidur,
+                        jamBangun = jamBangun,
+                        durasiTidur = durasiTidur.replace(",", ".").toDoubleOrNull() ?: 0.0,
+                        kualitasTidur = kualitasTidur
+                    )
+
+                    scope.launch {
+                        val result = repo.catatTidur(req)
+                        if (result.isSuccess) {
+                            showDialogSuccess = true
+
+                            // 🔥 RESET FORM DI SINI
+                            tanggal = ""
+                            jamTidur = ""
+                            jamBangun = ""
+                            durasiTidur = ""
+                            kualitasTidur = 0
+                        }
+                    }
+                }
+            }
+        )
+
+    }
+
+    // --- Success Dialog ---
+}
+
+// ===================================
+// SUB-COMPONENTS (UI Modular)
+// ===================================
+
+@Composable
+fun SleepQualitySelector(
+    selectedQuality: Int,
+    onQualitySelected: (Int) -> Unit
+) {
+    val emojis = listOf("😴", "😕", "😐", "🙂", "😄")
+    val labels = listOf("Sangat Buruk", "Buruk", "Cukup", "Baik", "Sangat Baik")
+
+    Column {
+        Text(
+            text = "Kualitas Tidur",
+            fontWeight = FontWeight.SemiBold,
+            color = Color.Black,
+            fontSize = 15.sp
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Button(
-                onClick = {
-                    tanggal = ""
-                    jamTidur = ""
-                    jamBangun = ""
-                    durasiTidur = ""
-                    kualitasTidur = 0
-                    navController.navigate("dashboard") {
-                        popUpTo("sport_screen") { inclusive = true }
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF)),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Batal", color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Button(
-                onClick = { showDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4)),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Simpan", color = Color.White)
+            emojis.forEachIndexed { index, emoji ->
+                val qualityScore = index + 1
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onQualitySelected(qualityScore) }
+                        .background(
+                            color = if (selectedQuality == qualityScore) SleepColors.SelectedItem else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(8.dp)
+                ) {
+                    Text(text = emoji, fontSize = 28.sp)
+                }
             }
         }
 
-        // Pop-up Berhasil Simpan
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                title = { Text("Berhasil") },
-                text = { Text("Data tidur berhasil disimpan!") },
-                confirmButton = {
-                    Button(
-                        onClick = { showDialog = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
-                    ) {
-                        Text("OK", color = Color.White)
-                    }
-                },
-                containerColor = Color.White,
-                tonalElevation = 4.dp,
-                shape = RoundedCornerShape(16.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Label teks deskriptif
+        if (selectedQuality > 0) {
+            Text(
+                text = labels[selectedQuality - 1],
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+                fontSize = 14.sp
             )
         }
     }
 }
 
-/**
- * Komponen reusable untuk field tanggal/jam
- */
 @Composable
-fun DateTimeField(label: String, value: String, onClick: () -> Unit) {
+fun SleepActionButtons(
+    onCancel: () -> Unit,
+    onSave: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Button(
+            onClick = onCancel,
+            colors = ButtonDefaults.buttonColors(containerColor = SleepColors.Secondary),
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text("Batal", color = Color.White)
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Button(
+            onClick = onSave,
+            colors = ButtonDefaults.buttonColors(containerColor = SleepColors.Primary),
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text("Simpan", color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun DateTimeField(
+    label: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    // Menggunakan Box + transparent surface overlay untuk memastikan klik terdeteksi
+    // tanpa konflik dengan TextField interaction source
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -241,39 +291,64 @@ fun DateTimeField(label: String, value: String, onClick: () -> Unit) {
     ) {
         OutlinedTextField(
             value = value,
-            onValueChange = {},
+            onValueChange = {}, // Read only
             label = { Text(label) },
             placeholder = { Text("Klik untuk memilih") },
             readOnly = true,
-            enabled = false,
+            enabled = false, // Disabled agar border abu-abu dan tidak muncul keyboard, tapi klik ditangkap Box
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 disabledBorderColor = Color.LightGray,
                 disabledTextColor = Color.Black,
-                disabledLabelColor = Color.Gray
+                disabledLabelColor = Color.Gray,
+                disabledPlaceholderColor = Color.Gray
             )
         )
     }
 }
 
-/**
- * Hitung durasi tidur otomatis
- */
-fun hitungDurasiTidur(jamTidur: String, jamBangun: String): String {
-    if (jamTidur.isEmpty() || jamBangun.isEmpty()) return ""
-    val format = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val waktuTidur = format.parse(jamTidur)
-    val waktuBangun = format.parse(jamBangun)
-    var selisih = (waktuBangun.time - waktuTidur.time).toDouble()
-    if (selisih < 0) selisih += 24 * 60 * 60 * 1000
-    val jam = selisih / (1000 * 60 * 60)
-    return String.format("%.1f", jam)
+@Composable
+fun SuccessDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Berhasil", fontWeight = FontWeight.Bold) },
+        text = { Text("Data tidur berhasil disimpan!") },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = SleepColors.Primary)
+            ) {
+                Text("OK", color = Color.White)
+            }
+        },
+        containerColor = SleepColors.Surface,
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
-/**
- * Helper: ambil Activity dari Context
- */
+// ===================================
+// UTILS & EXTENSIONS
+// ===================================
+
+fun hitungDurasiTidur(jamTidur: String, jamBangun: String): String {
+    if (jamTidur.isEmpty() || jamBangun.isEmpty()) return ""
+    return try {
+        val format = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val t1 = format.parse(jamTidur)
+        val t2 = format.parse(jamBangun)
+
+        if (t1 != null && t2 != null) {
+            var diff = t2.time - t1.time
+            if (diff < 0) diff += 24 * 60 * 60 * 1000 // Handle lintas hari
+            val hours = diff / (1000 * 60 * 60).toDouble()
+            String.format(Locale.US, "%.1f", hours)
+        } else ""
+    } catch (e: Exception) {
+        ""
+    }
+}
+
 fun Context.getActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.getActivity()

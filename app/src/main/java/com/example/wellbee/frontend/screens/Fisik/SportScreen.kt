@@ -205,7 +205,6 @@ fun SportScreen(navController: NavHostController) {
 
 
                         val request = SportRequest(
-                            userId = currentUserId,
                             jenisOlahraga = jenisOlahraga,
                             durasiMenit = durasiInt,
                             kaloriTerbakar = kaloriInt
