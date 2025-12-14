@@ -3,6 +3,7 @@ package com.example.wellbee.frontend.screens.Fisik
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,10 +23,13 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.wellbee.data.FisikRepository
 import com.example.wellbee.data.model.SleepRequest
+import com.example.wellbee.frontend.components.DateField
+import com.example.wellbee.frontend.components.showDatePicker
 import com.example.wellbee.frontend.components.showTimePicker
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
 
 // --- Palet Warna Lokal ---
 private object SleepColors {
@@ -55,6 +59,16 @@ fun SleepScreen(navController: NavHostController) {
     var showDialogSuccess by remember { mutableStateOf(false) }
     var showPickerTidur by remember { mutableStateOf(false) }
     var showPickerBangun by remember { mutableStateOf(false) }
+
+    var showDatePickerDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(showDatePickerDialog) {
+        if (showDatePickerDialog) {
+            showDatePicker(context) { selectedDate ->
+                tanggal = selectedDate
+                showDatePickerDialog = false
+            }
+        }
+    }
 
     // --- Logic Helper ---
     fun updateDurasi() {
@@ -98,10 +112,10 @@ fun SleepScreen(navController: NavHostController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         // 2. Form Input Waktu
-        DateTimeField(
+        DateField(
             label = "Tanggal",
             value = tanggal,
-            onClick = { /* Todo: Implement DatePicker */ }
+            onClick = { showDatePickerDialog = true }
         )
 
         DateTimeField(
@@ -137,7 +151,7 @@ fun SleepScreen(navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 3. Selector Kualitas Tidur (Hanya muncul jika jam terisi)
+        // 3. Selector Kualitas Tidur
         if (jamTidur.isNotEmpty() && jamBangun.isNotEmpty()) {
             SleepQualitySelector(
                 selectedQuality = kualitasTidur,
@@ -149,51 +163,60 @@ fun SleepScreen(navController: NavHostController) {
         // 4. Action Buttons
         SleepActionButtons(
             onCancel = { navController.popBackStack() },
-            onSave = {
-                if (jamTidur.isNotEmpty() &&
-                    jamBangun.isNotEmpty() &&
-                    durasiTidur.isNotEmpty()
+            onSave = onSave@{
+
+                if (tanggal.isEmpty()) {
+                    Toast.makeText(context, "Tanggal wajib diisi", Toast.LENGTH_SHORT).show()
+                    return@onSave   // ✅ INI KUNCI
+                }
+
+                if (jamTidur.isEmpty() ||
+                    jamBangun.isEmpty() ||
+                    durasiTidur.isEmpty()
                 ) {
+                    Toast.makeText(context, "Lengkapi data tidur", Toast.LENGTH_SHORT).show()
+                    return@onSave
+                }
 
-                    val repo = FisikRepository(context)
-                    val req = SleepRequest(
-                        jamTidur = jamTidur,
-                        jamBangun = jamBangun,
-                        durasiTidur = durasiTidur.replace(",", ".").toDoubleOrNull() ?: 0.0,
-                        kualitasTidur = kualitasTidur
-                    )
+                val repo = FisikRepository(context)
+                val req = SleepRequest(
+                    jamTidur = jamTidur,
+                    jamBangun = jamBangun,
+                    durasiTidur = durasiTidur.replace(",", ".").toDouble(),
+                    kualitasTidur = kualitasTidur,
+                    tanggal = tanggal
+                )
 
-                    scope.launch {
-                        val result = repo.catatTidur(req)
-                        if (result.isSuccess) {
-                            showDialogSuccess = true
+                scope.launch {
+                    val result = repo.catatTidur(req)
+                    if (result.isSuccess) {
+                        Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
 
-                            // 🔥 RESET FORM DI SINI
-                            tanggal = ""
-                            jamTidur = ""
-                            jamBangun = ""
-                            durasiTidur = ""
-                            kualitasTidur = 0
-                        }
+                        tanggal = ""
+                        jamTidur = ""
+                        jamBangun = ""
+                        durasiTidur = ""
+                        kualitasTidur = 0
+                    } else {
+                        Toast.makeText(
+                            context,
+                            result.exceptionOrNull()?.message ?: "Gagal menyimpan",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             }
         )
 
     }
-
-    // --- Success Dialog ---
 }
 
 // ===================================
-// SUB-COMPONENTS (UI Modular)
+// COMPONENTS
 // ===================================
 
 @Composable
-fun SleepQualitySelector(
-    selectedQuality: Int,
-    onQualitySelected: (Int) -> Unit
-) {
+fun SleepQualitySelector(selectedQuality: Int, onQualitySelected: (Int) -> Unit) {
     val emojis = listOf("😴", "😕", "😐", "🙂", "😄")
     val labels = listOf("Sangat Buruk", "Buruk", "Cukup", "Baik", "Sangat Baik")
 
@@ -212,14 +235,14 @@ fun SleepQualitySelector(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             emojis.forEachIndexed { index, emoji ->
-                val qualityScore = index + 1
+                val score = index + 1
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onQualitySelected(qualityScore) }
+                        .clickable { onQualitySelected(score) }
                         .background(
-                            color = if (selectedQuality == qualityScore) SleepColors.SelectedItem else Color.Transparent,
+                            color = if (selectedQuality == score) SleepColors.SelectedItem else Color.Transparent,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .padding(8.dp)
@@ -229,10 +252,8 @@ fun SleepQualitySelector(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Label teks deskriptif
         if (selectedQuality > 0) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = labels[selectedQuality - 1],
                 color = Color.Gray,
@@ -245,10 +266,7 @@ fun SleepQualitySelector(
 }
 
 @Composable
-fun SleepActionButtons(
-    onCancel: () -> Unit,
-    onSave: () -> Unit
-) {
+fun SleepActionButtons(onCancel: () -> Unit, onSave: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
@@ -276,13 +294,7 @@ fun SleepActionButtons(
 }
 
 @Composable
-fun DateTimeField(
-    label: String,
-    value: String,
-    onClick: () -> Unit
-) {
-    // Menggunakan Box + transparent surface overlay untuk memastikan klik terdeteksi
-    // tanpa konflik dengan TextField interaction source
+fun DateTimeField(label: String, value: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -291,44 +303,24 @@ fun DateTimeField(
     ) {
         OutlinedTextField(
             value = value,
-            onValueChange = {}, // Read only
+            onValueChange = {},
             label = { Text(label) },
-            placeholder = { Text("Klik untuk memilih") },
             readOnly = true,
-            enabled = false, // Disabled agar border abu-abu dan tidak muncul keyboard, tapi klik ditangkap Box
+            enabled = false,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                disabledBorderColor = Color.LightGray,
                 disabledTextColor = Color.Black,
                 disabledLabelColor = Color.Gray,
-                disabledPlaceholderColor = Color.Gray
+                disabledBorderColor = Color.Gray
             )
         )
     }
 }
 
-@Composable
-fun SuccessDialog(onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Berhasil", fontWeight = FontWeight.Bold) },
-        text = { Text("Data tidur berhasil disimpan!") },
-        confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = SleepColors.Primary)
-            ) {
-                Text("OK", color = Color.White)
-            }
-        },
-        containerColor = SleepColors.Surface,
-        shape = RoundedCornerShape(16.dp)
-    )
-}
 
 // ===================================
-// UTILS & EXTENSIONS
+// UTILS
 // ===================================
 
 fun hitungDurasiTidur(jamTidur: String, jamBangun: String): String {
@@ -340,7 +332,7 @@ fun hitungDurasiTidur(jamTidur: String, jamBangun: String): String {
 
         if (t1 != null && t2 != null) {
             var diff = t2.time - t1.time
-            if (diff < 0) diff += 24 * 60 * 60 * 1000 // Handle lintas hari
+            if (diff < 0) diff += 24 * 60 * 60 * 1000
             val hours = diff / (1000 * 60 * 60).toDouble()
             String.format(Locale.US, "%.1f", hours)
         } else ""

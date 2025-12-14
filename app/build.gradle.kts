@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-kapt")
 }
 
 android {
@@ -77,6 +78,10 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.8")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

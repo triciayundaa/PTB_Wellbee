@@ -7,6 +7,9 @@ import com.example.wellbee.data.model.SportHistory
 import com.example.wellbee.data.model.SportModel
 import com.example.wellbee.data.model.SportRequest // Pastikan import sesuai package
 import com.example.wellbee.data.model.SportResponse
+import com.example.wellbee.data.model.WeightData
+import com.example.wellbee.data.model.WeightRequest
+import com.example.wellbee.data.model.WeightResponse
 import retrofit2.Response
 import retrofit2.Call
 import retrofit2.http.Body
@@ -62,6 +65,27 @@ interface ApiService {
         @Path("id") id: Int,
         @Body req: SleepRequest
     ): Response<SleepResponse>
+
+    // =======================
+// WEIGHT (FIX)
+// =======================
+    @POST("api/fisik/weight")
+    suspend fun catatWeight(
+        @Body req: WeightRequest
+    ): Response<WeightResponse>
+
+    @GET("api/fisik/weight/riwayat")
+    suspend fun getWeightHistory(): Response<List<WeightData>>
+
+    @DELETE("api/fisik/weight/{id}")
+    suspend fun deleteWeight(@Path("id") id: Int): Response<Unit>
+
+    @PUT("api/fisik/weight/{id}")
+    suspend fun updateWeight(
+        @Path("id") id: Int,
+        @Body req: WeightRequest
+    ): Response<Unit>
+
 
 }
 

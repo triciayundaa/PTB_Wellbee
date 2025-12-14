@@ -6,7 +6,9 @@ package com.example.wellbee.data.model
 data class SportRequest(
     val jenisOlahraga: String,
     val durasiMenit: Int,
-    val kaloriTerbakar: Int
+    val kaloriTerbakar: Int,
+    val foto: String? = null,
+    val tanggal: String
 )
 
 // ===============================
@@ -27,7 +29,8 @@ data class SportModel(
     val jenisOlahraga: String,
     val durasiMenit: Int,
     val kaloriTerbakar: Int,
-    val tanggal: String   // Pastikan backend mengirim ini!
+    val tanggal: String,
+    val foto: String? = null   // ← WAJIB ADA
 )
 
 data class SportHistory(
@@ -36,7 +39,8 @@ data class SportHistory(
     val jenisOlahraga: String,
     val durasiMenit: Int,
     val kaloriTerbakar: Int,
-    val tanggal: String? = null   // opsional
+    val tanggal: String? = null,
+    val foto: String? = null   // ← WAJIB ADA & pakai koma
 )
 
 // ===============================
@@ -47,7 +51,8 @@ data class SleepRequest(
     val jamTidur: String,
     val jamBangun: String,
     val durasiTidur: Double,
-    val kualitasTidur: Int
+    val kualitasTidur: Int,
+    val tanggal: String
 )
 
 data class SleepResponse(
@@ -57,10 +62,39 @@ data class SleepResponse(
 
 data class SleepData(
     val id: Int,
-
     val jamTidur: String,
     val jamBangun: String,
     val durasiTidur: Double,
-    val kualitasTidur: Int
+    val kualitasTidur: Int,
+    val tanggal: String
 )
+
+//weight
+data class WeightData(
+    val id: Int,
+    val beratBadan: Double,
+    val tinggiBadan: Double,
+    val bmi: Double,
+    val kategori: String,
+    val tanggal: String
+)
+// ===== RESPONSE DARI BACKEND =====
+data class WeightResponse(
+    val message: String,
+    val data: WeightData
+)
+
+data class WeightRequest(
+    val beratBadan: Double,
+    val tinggiBadan: Double,
+    val bmi: Double,
+    val kategori: String,
+    val tanggal: String
+)
+
+data class WeeklySportPoint(
+    val dayLabel: String,   // Sen (11 Jun)
+    val duration: Int
+)
+
 
