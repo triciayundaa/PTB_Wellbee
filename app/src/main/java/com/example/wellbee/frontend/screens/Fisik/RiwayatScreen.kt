@@ -1,6 +1,5 @@
 package com.example.wellbee.frontend.screens.Fisik
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -36,6 +35,28 @@ import androidx.compose.foundation.lazy.items
 import com.example.wellbee.data.model.WeightData
 import com.example.wellbee.data.model.WeightRequest
 
+// 🔥 DEFINISI WARNA INPUT AGAR JELAS (TIDAK ABU-ABU)
+@Composable
+fun inputColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.Black,
+    unfocusedTextColor = Color.Black,
+    focusedBorderColor = Color(0xFF0E4DA4),
+    unfocusedBorderColor = Color.Gray,
+    focusedLabelColor = Color(0xFF0E4DA4),
+    unfocusedLabelColor = Color.Gray,
+    cursorColor = Color(0xFF0E4DA4)
+)
+
+// 🔥 DEFINISI WARNA READ-ONLY (TETAP HITAM MESKI DISABLED)
+@Composable
+fun readOnlyColors() = OutlinedTextFieldDefaults.colors(
+    disabledTextColor = Color.Black,
+    disabledBorderColor = Color.LightGray,
+    disabledLabelColor = Color.DarkGray,
+    focusedTextColor = Color.Black,
+    unfocusedTextColor = Color.Black
+)
+
 @Composable
 fun RiwayatScreen(navController: NavController) {
     var selectedTab by remember { mutableStateOf<String?>(null) }
@@ -57,14 +78,6 @@ fun RiwayatScreen(navController: NavController) {
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0E4DA4)
             )
-
-            Button(
-                onClick = { },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("Date", color = Color.White)
-            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -117,7 +130,7 @@ fun PilihKategoriScreen() {
 }
 
 /* ============================================================
-   SPORT RIWAYAT (DENGAN FOTO)
+   SPORT RIWAYAT
    ============================================================ */
 
 @Composable
@@ -131,11 +144,8 @@ fun SportRiwayatList() {
 
     var editingItem by remember { mutableStateOf<SportHistory?>(null) }
 
-    val prefs = context.getSharedPreferences("wellbee_prefs", Context.MODE_PRIVATE)
-    val userId = prefs.getInt("user_id", -1)
-
     LaunchedEffect(Unit) {
-        val result = repo.getSportHistory(userId)
+        val result = repo.getSportHistory()
         if (result.isSuccess) data = result.getOrNull()!!
         loading = false
     }
@@ -150,7 +160,6 @@ fun SportRiwayatList() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(data) { item ->
-
             val bitmap = decodeBase64(item.foto)
 
             Card(
@@ -160,7 +169,6 @@ fun SportRiwayatList() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-
                     if (bitmap != null) {
                         Image(
                             bitmap = bitmap.asImageBitmap(),
@@ -176,7 +184,7 @@ fun SportRiwayatList() {
                     Text("Tanggal: ${formatTanggalDisplay(item.tanggal)}", color = Color.Gray)
                     Text(item.jenisOlahraga, fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4))
                     Text("${item.durasiMenit} menit", color = Color(0xFF00B894))
-                    Text("${item.kaloriTerbakar} kcal", color = Color(0xFFD63031))   // <-- TAMBAHKAN INI
+                    Text("${item.kaloriTerbakar} kcal", color = Color(0xFFD63031))
 
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -189,8 +197,8 @@ fun SportRiwayatList() {
                         }
                         IconButton(onClick = {
                             scope.launch {
-                                val result = repo.deleteSport(item.id)
-                                if (result.isSuccess) data = data.filter { it.id != item.id }
+                                val resultDel = repo.deleteSport(item.id)
+                                if (resultDel.isSuccess) data = data.filter { it.id != item.id }
                             }
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFD63031))
@@ -200,7 +208,6 @@ fun SportRiwayatList() {
             }
         }
     }
-
 
     if (editingItem != null) {
         EditSportDialog(
@@ -216,33 +223,22 @@ fun SportRiwayatList() {
 
 fun formatTanggalDisplay(input: String?): String {
     if (input.isNullOrEmpty()) return "-"
-
-    // Buat parser ISO 8601 (dari Retrofit)
-    val isoFormats = listOf(
-        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-        "yyyy-MM-dd'T'HH:mm:ss'Z'",
-        "yyyy-MM-dd"
-    )
-
+    val isoFormats = listOf("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd")
     for (pattern in isoFormats) {
         try {
             val parser = java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
             parser.timeZone = java.util.TimeZone.getTimeZone("UTC")
             val date = parser.parse(input)
-
             val formatter = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("id", "ID"))
             return formatter.format(date!!)
-        } catch (e: Exception) {
-        }
+        } catch (e: Exception) {}
     }
-
-    return input // fallback
+    return input
 }
 
 /* ============================================================
-   POPUP EDIT SPORT (DENGAN FOTO)
+   EDIT SPORT DIALOG (FIX TAMPILAN)
    ============================================================ */
-
 @Composable
 fun EditSportDialog(
     item: SportHistory,
@@ -258,7 +254,6 @@ fun EditSportDialog(
 
     val USER_WEIGHT_KG = 60.0
 
-    // AUTO UPDATE KALORI
     LaunchedEffect(jenis, durasi) {
         val m = durasi.toIntOrNull() ?: 0
         kalori = if (m > 0) {
@@ -272,12 +267,9 @@ fun EditSportDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
         shape = RoundedCornerShape(16.dp),
-        title = {
-            Text("Edit Data Olahraga", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0E4DA4))
-        },
+        title = { Text("Edit Data Olahraga", fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4)) },
         text = {
             Column {
-
                 if (FOTO_BITMAP != null) {
                     Image(
                         bitmap = FOTO_BITMAP.asImageBitmap(),
@@ -294,27 +286,29 @@ fun EditSportDialog(
                     value = jenis,
                     onValueChange = { jenis = it },
                     label = { Text("Jenis Olahraga") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = inputColors() // 🔥 WARNA JELAS
                 )
-
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = durasi,
                     onValueChange = { durasi = it.filter { c -> c.isDigit() } },
                     label = { Text("Durasi (menit)") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = inputColors() // 🔥 WARNA JELAS
                 )
-
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = kalori,
                     onValueChange = {},
                     readOnly = true,
-                    enabled = false,
+                    enabled = false, // Tetap false agar tidak bisa diketik
                     label = { Text("Kalori Terbakar") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = readOnlyColors() // 🔥 TETAP HITAM
                 )
             }
         },
-
         confirmButton = {
             Button(
                 onClick = {
@@ -326,17 +320,10 @@ fun EditSportDialog(
                         foto = item.foto,
                         tanggal = item.tanggal ?: ""
                     )
-
                     scope.launch {
                         val result = repo.updateSport(item.id, req)
                         if (result.isSuccess) {
-                            onSave(
-                                item.copy(
-                                    jenisOlahraga = jenis,
-                                    durasiMenit = durasi.toInt(),
-                                    kaloriTerbakar = kalori.toInt()
-                                )
-                            )
+                            onSave(item.copy(jenisOlahraga = jenis, durasiMenit = durasi.toInt(), kaloriTerbakar = kalori.toInt()))
                         }
                     }
                 },
@@ -345,7 +332,6 @@ fun EditSportDialog(
                 Text("Simpan", color = Color.White)
             }
         },
-
         dismissButton = {
             Button(
                 onClick = onDismiss,
@@ -357,91 +343,63 @@ fun EditSportDialog(
     )
 }
 
-/* ============================================================
-   DECODE BASE64 FOTO
-   ============================================================ */
-
 fun decodeBase64(base64: String?): Bitmap? {
     if (base64.isNullOrEmpty()) return null
     return try {
         val bytes = Base64.decode(base64, Base64.DEFAULT)
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    } catch (e: Exception) {
-        null
-    }
+    } catch (e: Exception) { null }
 }
 
 /* ============================================================
-   SLEEP DAN BERAT BADAN (TIDAK DIUBAH)
+   SLEEP RIWAYAT
    ============================================================ */
 
 @Composable
 fun SleepRiwayatList() {
     val context = LocalContext.current
     val repo = remember { FisikRepository(context) }
-
     var data by remember { mutableStateOf<List<SleepData>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
-
     var editingItem by remember { mutableStateOf<SleepData?>(null) }
 
     LaunchedEffect(Unit) {
         val result = repo.getSleepHistory()
-        if (result.isSuccess) {
-            data = result.getOrNull()!!
-        }
+        if (result.isSuccess) data = result.getOrNull()!!
         loading = false
     }
 
-    if (loading) {
-        Text("Loading...")
-        return
-    }
+    if (loading) { Text("Loading..."); return }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-
+    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(data) { item ->
-
             Card(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(2.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-
                 Column(Modifier.padding(16.dp)) {
                     Text("Tanggal: ${formatTanggalDisplay(item.tanggal)}", color = Color.Gray)
                     Text("Jam Tidur: ${item.jamTidur}", fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4))
                     Text("Jam Bangun: ${item.jamBangun}", color = Color(0xFF00B894))
                     Text("Durasi: ${item.durasiTidur} jam")
                     Text("Kualitas: ${item.kualitasTidur}/5")
-
                     Spacer(modifier = Modifier.height(10.dp))
-
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        IconButton(onClick = { editingItem = item }) {
-                            Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFF00B894))
-                        }
+                        IconButton(onClick = { editingItem = item }) { Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFF00B894)) }
                         IconButton(onClick = {
                             scope.launch {
                                 val res = repo.deleteSleep(item.id)
-                                if (res.isSuccess) {
-                                    data = data.filter { it.id != item.id }
-                                }
+                                if (res.isSuccess) data = data.filter { it.id != item.id }
                             }
-                        }) {
-                            Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFD63031))
-                        }
+                        }) { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFD63031)) }
                     }
                 }
             }
         }
     }
-
     if (editingItem != null) {
         EditSleepDialog(
             item = editingItem!!,
@@ -454,6 +412,9 @@ fun SleepRiwayatList() {
     }
 }
 
+/* ============================================================
+   EDIT SLEEP DIALOG (FIX TAMPILAN)
+   ============================================================ */
 @Composable
 fun EditSleepDialog(
     item: SleepData,
@@ -473,7 +434,7 @@ fun EditSleepDialog(
     var showPickerBangun by remember { mutableStateOf(false) }
 
     fun updateDurasi() {
-        durasiTidur = hitungDurasiTidur(jamTidur, jamBangun)
+        durasiTidur = hitungDurasiTidurRiwayat(jamTidur, jamBangun)
     }
 
     if (showPickerTidur && activity != null) {
@@ -483,7 +444,6 @@ fun EditSleepDialog(
             showPickerTidur = false
         }
     }
-
     if (showPickerBangun && activity != null) {
         showTimePicker(activity) { selected ->
             jamBangun = selected
@@ -494,83 +454,81 @@ fun EditSleepDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,         // <-- INI WAJIB
-        shape = RoundedCornerShape(20.dp),    // <-- AGAR MELENGKUNG CANTIK
-        title = {
-            Text(
-                "Edit Data Tidur",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = Color(0xFF0E4DA4)
-            )
-        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(20.dp),
+        title = { Text("Edit Data Tidur", fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4)) },
         text = {
             Column {
-
-                DateTimeField(
-                    label = "Jam Tidur",
+                // Gunakan OutlinedTextField clickable pengganti DateTimeField custom agar warna konsisten
+                OutlinedTextField(
                     value = jamTidur,
-                    onClick = { showPickerTidur = true }
+                    onValueChange = {},
+                    label = { Text("Jam Tidur") },
+                    readOnly = true,
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth().clickable { showPickerTidur = true },
+                    colors = readOnlyColors() // 🔥 WARNA HITAM
                 )
-
-                DateTimeField(
-                    label = "Jam Bangun",
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
                     value = jamBangun,
-                    onClick = { showPickerBangun = true }
+                    onValueChange = {},
+                    label = { Text("Jam Bangun") },
+                    readOnly = true,
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth().clickable { showPickerBangun = true },
+                    colors = readOnlyColors() // 🔥 WARNA HITAM
                 )
-
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = durasiTidur,
                     onValueChange = { },
                     readOnly = true,
                     enabled = false,
                     label = { Text("Durasi (jam)") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = readOnlyColors() // 🔥 WARNA HITAM (SOLUSI DURASI GA KELIHATAN)
                 )
-
                 Spacer(Modifier.height(12.dp))
-
-                SleepQualitySelector(
-                    selectedQuality = kualitas,
-                    onQualitySelected = { kualitas = it }
-                )
+                SleepQualitySelector(selectedQuality = kualitas, onQualitySelected = { kualitas = it })
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val updated = item.copy(
-                        jamTidur = jamTidur,
-                        jamBangun = jamBangun,
-                        durasiTidur = durasiTidur.toDouble(),
-                        kualitasTidur = kualitas
-                    )
-
                     val repo = FisikRepository(context)
-                    val req = SleepRequest(
-                        jamTidur = jamTidur,
-                        jamBangun = jamBangun,
-                        durasiTidur = durasiTidur.toDouble(),
-                        kualitasTidur = kualitas,
-                        tanggal = item.tanggal ?: ""
-                    )
-
+                    val req = SleepRequest(jamTidur, jamBangun, durasiTidur.toDouble(), kualitas, item.tanggal ?: "")
                     scope.launch {
                         val result = repo.updateSleep(item.id, req)
-                        if (result.isSuccess) onSave(updated)
+                        if (result.isSuccess) onSave(item.copy(jamTidur = jamTidur, jamBangun = jamBangun, durasiTidur = durasiTidur.toDouble(), kualitasTidur = kualitas))
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
-            ) {
-                Text("Simpan", color = Color.White)
-            }
+            ) { Text("Simpan", color = Color.White) }
         },
         dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Batal")
-            }
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF))
+            ) { Text("Batal", color = Color.White) }
         }
     )
+}
+
+// Helper hitung durasi lokal untuk riwayat
+fun hitungDurasiTidurRiwayat(jamTidur: String, jamBangun: String): String {
+    if (jamTidur.isEmpty() || jamBangun.isEmpty()) return ""
+    return try {
+        val format = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val t1 = format.parse(jamTidur)
+        val t2 = format.parse(jamBangun)
+        if (t1 != null && t2 != null) {
+            var diff = t2.time - t1.time
+            if (diff < 0) diff += 24 * 60 * 60 * 1000
+            val hours = diff / (1000 * 60 * 60).toDouble()
+            String.format(java.util.Locale.US, "%.1f", hours)
+        } else ""
+    } catch (e: Exception) { "" }
 }
 
 fun hitungKaloriTerbakarRiwayat(jenis: String, durasiMenit: Int, beratKg: Double): Double {
@@ -578,110 +536,60 @@ fun hitungKaloriTerbakarRiwayat(jenis: String, durasiMenit: Int, beratKg: Double
         "lari", "jogging" -> 8.3
         "jalan", "jalan cepat" -> 3.8
         "bersepeda", "sepeda" -> 7.5
-        "renang" -> 6.0
-        "yoga" -> 3.0
-        "skipping", "lompat tali" -> 12.3
-        "basket" -> 6.5
-        "futsal", "sepak bola" -> 7.0
-        "badminton", "bulu tangkis" -> 5.5
         else -> 5.0
     }
     return met * 3.5 * beratKg / 200.0 * durasiMenit
 }
+
+/* ============================================================
+   BERAT BADAN RIWAYAT
+   ============================================================ */
 
 @Composable
 fun BeratBadanRiwayatList() {
     val context = LocalContext.current
     val repo = remember { FisikRepository(context) }
     val scope = rememberCoroutineScope()
-
     var data by remember { mutableStateOf<List<WeightData>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var editingItem by remember { mutableStateOf<WeightData?>(null) }
 
     LaunchedEffect(Unit) {
         val result = repo.getWeightHistory()
-        if (result.isSuccess) {
-            data = result.getOrNull()!!
-        }
+        if (result.isSuccess) data = result.getOrNull()!!
         loading = false
     }
 
-    if (loading) {
-        Text("Loading...")
-        return
-    }
+    if (loading) { Text("Loading..."); return }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(data) { item ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(2.dp)
-            ) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
                 Column(Modifier.padding(16.dp)) {
-
-                    Text(
-                        "Tanggal: ${formatTanggalDisplay(item.tanggal)}",
-                        color = Color.Gray
-                    )
-
-                    Text(
-                        "Berat: ${item.beratBadan} kg",
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0E4DA4)
-                    )
-
+                    Text("Tanggal: ${formatTanggalDisplay(item.tanggal)}", color = Color.Gray)
+                    Text("Berat: ${item.beratBadan} kg", fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4))
                     Text("Tinggi: ${item.tinggiBadan} cm")
                     Text("BMI: ${String.format("%.1f", item.bmi)}")
-                    Text(
-                        "Kategori: ${item.kategori}",
-                        color = when (item.kategori) {
-                            "Kurus" -> Color(0xFF3498DB)
-                            "Normal" -> Color(0xFF00B894)
-                            "Kelebihan Berat" -> Color(0xFFF1C40F)
-                            else -> Color(0xFFD63031)
-                        }
-                    )
-
+                    Text("Kategori: ${item.kategori}", color = when (item.kategori) {
+                        "Kurus" -> Color(0xFF3498DB)
+                        "Normal" -> Color(0xFF00B894)
+                        "Kelebihan Berat" -> Color(0xFFF1C40F)
+                        else -> Color(0xFFD63031)
+                    })
                     Spacer(Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        IconButton(onClick = { editingItem = item }) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "Edit",
-                                tint = Color(0xFF00B894)
-                            )
-                        }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        IconButton(onClick = { editingItem = item }) { Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color(0xFF00B894)) }
                         IconButton(onClick = {
                             scope.launch {
                                 val res = repo.deleteWeight(item.id)
-                                if (res.isSuccess) {
-                                    data = data.filter { it.id != item.id }
-                                }
+                                if (res.isSuccess) data = data.filter { it.id != item.id }
                             }
-                        }) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = Color(0xFFD63031)
-                            )
-                        }
+                        }) { Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFD63031)) }
                     }
                 }
             }
         }
     }
-
-    // POPUP EDIT
     if (editingItem != null) {
         EditWeightDialog(
             item = editingItem!!,
@@ -694,6 +602,9 @@ fun BeratBadanRiwayatList() {
     }
 }
 
+/* ============================================================
+   EDIT WEIGHT DIALOG (FIX TAMPILAN)
+   ============================================================ */
 @Composable
 fun EditWeightDialog(
     item: WeightData,
@@ -728,72 +639,49 @@ fun EditWeightDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
         shape = RoundedCornerShape(16.dp),
-        title = {
-            Text(
-                "Edit Berat Badan",
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0E4DA4)
-            )
-        },
+        title = { Text("Edit Berat Badan", fontWeight = FontWeight.Bold, color = Color(0xFF0E4DA4)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = berat,
                     onValueChange = { berat = it.filter { c -> c.isDigit() || c == '.' } },
                     label = { Text("Berat Badan (kg)") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = inputColors() // 🔥 WARNA JELAS
                 )
-
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = tinggi,
                     onValueChange = { tinggi = it.filter { c -> c.isDigit() || c == '.' } },
                     label = { Text("Tinggi Badan (cm)") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = inputColors() // 🔥 WARNA JELAS
                 )
-
                 Spacer(Modifier.height(8.dp))
-                Text("BMI: ${String.format("%.1f", bmi)}")
-                Text("Kategori: $kategori")
+                Text("BMI: ${String.format("%.1f", bmi)}", color = Color.Black)
+                Text("Kategori: $kategori", color = Color.Black)
             }
         },
         confirmButton = {
             Button(
-                enabled = beratVal != null && tinggiVal != null && bmi > 0,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4)),
+                // enabled = true selalu, biar warna biru
                 onClick = {
-                    val req = WeightRequest(
-                        beratBadan = beratVal!!,
-                        tinggiBadan = tinggiVal!!,
-                        bmi = bmi,
-                        kategori = kategori,
-                        tanggal = item.tanggal
-                    )
-
-                    scope.launch {
-                        val result = repo.updateWeight(item.id, req)
-                        if (result.isSuccess) {
-                            onSave(
-                                item.copy(
-                                    beratBadan = req.beratBadan,
-                                    tinggiBadan = req.tinggiBadan,
-                                    bmi = req.bmi,
-                                    kategori = req.kategori
-                                )
-                            )
+                    if (beratVal != null && tinggiVal != null && bmi > 0) {
+                        val req = WeightRequest(beratVal, tinggiVal, bmi, kategori, item.tanggal)
+                        scope.launch {
+                            val result = repo.updateWeight(item.id, req)
+                            if (result.isSuccess) onSave(item.copy(beratBadan = req.beratBadan, tinggiBadan = req.tinggiBadan, bmi = req.bmi, kategori = req.kategori))
                         }
                     }
-                }
-            ) {
-                Text("Simpan", color = Color.White)
-            }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
+            ) { Text("Simpan", color = Color.White) }
         },
         dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Batal")
-            }
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF))
+            ) { Text("Batal", color = Color.White) }
         }
     )
 }
-
-
-

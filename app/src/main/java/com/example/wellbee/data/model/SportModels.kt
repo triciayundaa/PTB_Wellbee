@@ -1,5 +1,7 @@
 package com.example.wellbee.data.model
 
+import com.google.gson.annotations.SerializedName
+
 // ===============================
 // 1️⃣ Model untuk REQUEST ke Backend
 // ===============================
@@ -42,6 +44,24 @@ data class SportHistory(
     val tanggal: String? = null,
     val foto: String? = null   // ← WAJIB ADA & pakai koma
 )
+
+data class SportDailyTotal(
+    val tanggal: String,
+    val total: Int
+)
+
+data class WeeklySportChartResponse(
+    @SerializedName("labels")
+    val labels: List<String>,
+
+    @SerializedName("values")
+    val values: List<Double>,
+
+    @SerializedName("rangeText")
+    val rangeText: String
+)
+
+
 
 // ===============================
 // 4️⃣ Model untuk Sleep

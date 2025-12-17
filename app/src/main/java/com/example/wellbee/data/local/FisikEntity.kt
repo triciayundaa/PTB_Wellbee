@@ -8,14 +8,22 @@ import androidx.room.PrimaryKey
 // =========================================
 @Entity(tableName = "sport_history")
 data class SportEntity(
-    @PrimaryKey(autoGenerate = true) val localId: Int = 0,
-    val id: Int,                // ID dari server
+    // 🔥 PERBAIKAN: Gunakan ID dari server sebagai Primary Key
+    // Hapus 'localId' agar tidak terjadi duplikasi data saat sync
+    @PrimaryKey(autoGenerate = false)
+    val id: Int,
+
     val userId: Int,
     val jenisOlahraga: String,
     val durasiMenit: Int,
     val kaloriTerbakar: Int,
-    val tanggal: String?,
-    val foto: String?           // base64
+    val tanggal: String,
+    val foto: String?
+)
+
+data class DailySportSum(
+    val date: String,   // format: yyyy-MM-dd
+    val total: Int      // total durasiMenit per hari
 )
 
 // =========================================
@@ -23,8 +31,10 @@ data class SportEntity(
 // =========================================
 @Entity(tableName = "sleep_history")
 data class SleepEntity(
-    @PrimaryKey(autoGenerate = true) val localId: Int = 0,
+    // 🔥 PERBAIKAN: ID server sebagai Primary Key
+    @PrimaryKey(autoGenerate = false)
     val id: Int,
+
     val userId: Int,
     val jamTidur: String,
     val jamBangun: String,
@@ -33,15 +43,19 @@ data class SleepEntity(
     val tanggal: String
 )
 
-//weight
+// =========================================
+//  TABEL WEIGHT
+// =========================================
 @Entity(tableName = "weight_history")
 data class WeightEntity(
-    @PrimaryKey(autoGenerate = true) val localId: Int = 0,
+    // 🔥 PERBAIKAN: ID server sebagai Primary Key
+    @PrimaryKey(autoGenerate = false)
     val id: Int,
+
+    val userId: Int,
     val beratBadan: Double,
     val tinggiBadan: Double,
     val bmi: Double,
     val kategori: String,
     val tanggal: String
 )
-

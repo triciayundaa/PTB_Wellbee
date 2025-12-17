@@ -30,7 +30,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-
 // --- Palet Warna Lokal ---
 private object SleepColors {
     val Primary = Color(0xFF0E4DA4)
@@ -56,7 +55,6 @@ fun SleepScreen(navController: NavHostController) {
     var kualitasTidur by remember { mutableStateOf(0) }
 
     // --- UI Control States ---
-    var showDialogSuccess by remember { mutableStateOf(false) }
     var showPickerTidur by remember { mutableStateOf(false) }
     var showPickerBangun by remember { mutableStateOf(false) }
 
@@ -162,12 +160,15 @@ fun SleepScreen(navController: NavHostController) {
 
         // 4. Action Buttons
         SleepActionButtons(
-            onCancel = { navController.popBackStack() },
+            // 🔥 UPDATE: Menggunakan logika startDestinationId agar pasti kembali ke dashboard
+            onCancel = {
+                navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+            },
             onSave = onSave@{
 
                 if (tanggal.isEmpty()) {
                     Toast.makeText(context, "Tanggal wajib diisi", Toast.LENGTH_SHORT).show()
-                    return@onSave   // ✅ INI KUNCI
+                    return@onSave
                 }
 
                 if (jamTidur.isEmpty() ||

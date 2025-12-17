@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package com.example.wellbee.frontend.screens.Fisik
 
+import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -39,8 +40,6 @@ fun WeightScreen(navController: NavHostController) {
 
     var bmi by remember { mutableStateOf(0.0) }
     var kategori by remember { mutableStateOf("") }
-
-    var showDialog by remember { mutableStateOf(false) }
 
     // ================= PARSE INPUT =================
     val beratVal = berat.replace(",", ".").toDoubleOrNull()
@@ -158,7 +157,9 @@ fun WeightScreen(navController: NavHostController) {
         ) {
 
             Button(
-                onClick = { navController.popBackStack() },
+                onClick = {
+                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF))
             ) {
@@ -168,47 +169,45 @@ fun WeightScreen(navController: NavHostController) {
             Spacer(Modifier.width(16.dp))
 
             Button(
-                enabled = isValid,
+                // 🔥 HAPUS 'enabled = isValid' AGAR TOMBOL SELALU AKTIF (BIRU)
                 onClick = {
-                    val req = WeightRequest(
-                        beratBadan = beratVal!!,
-                        tinggiBadan = tinggiVal!!,
-                        bmi = bmi,
-                        kategori = kategori,
-                        tanggal = tanggal
-                    )
+                    // 🔥 PINDAHKAN PENGECEKAN KE SINI
+                    if (isValid) {
+                        val req = WeightRequest(
+                            beratBadan = beratVal!!,
+                            tinggiBadan = tinggiVal!!,
+                            bmi = bmi,
+                            kategori = kategori,
+                            tanggal = tanggal
+                        )
 
-                    scope.launch {
-                        val result = repo.catatWeight(req)
-                        if (result.isSuccess) {
-                            showDialog = true
+                        scope.launch {
+                            val result = repo.catatWeight(req)
+                            if (result.isSuccess) {
+                                Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
+
+                                // Reset Input
+                                berat = ""
+                                tinggi = ""
+                                tanggal = ""
+                            } else {
+                                Toast.makeText(context, "Gagal menyimpan", Toast.LENGTH_SHORT).show()
+                            }
                         }
+                    } else {
+                        // TAMPILKAN PESAN JIKA DATA BELUM LENGKAP
+                        Toast.makeText(context, "Mohon lengkapi semua data!", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0E4DA4),
+                    contentColor = Color.White
+                )
             ) {
-                Text("Simpan", color = Color.White)
+                Text("Simpan")
             }
-        }
-    }
 
-    // ================= POPUP =================
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Berhasil") },
-            text = { Text("Data berat badan berhasil disimpan!") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDialog = false
-                        navController.popBackStack()
-                    }
-                ) {
-                    Text("OK")
-                }
-            }
-        )
+        }
     }
 }

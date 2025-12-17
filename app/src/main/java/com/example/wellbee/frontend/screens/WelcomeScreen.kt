@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,15 +21,15 @@ import com.example.wellbee.ui.theme.WellbeeTheme
 
 @Composable
 fun WelcomeScreen(navController: NavController) {
-    // Ambil warna dari theme agar seragam
-    val bluePrimary = MaterialTheme.colorScheme.primary
-    val accent = MaterialTheme.colorScheme.secondary
-    val white = MaterialTheme.colorScheme.onPrimary
+    // Definisi warna manual agar konsisten
+    val BluePrimary = Color(0xFF0E4DA4)
+    val White = Color.White
+    val AccentGreen = Color(0xFF00B894) // Warna aksen untuk tombol kedua
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(bluePrimary)
+            .background(BluePrimary) // 🔥 Latar TETAP BIRU
             .padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -44,9 +43,9 @@ fun WelcomeScreen(navController: NavController) {
             // Judul di tengah layar
             Text(
                 text = "Welcome at Wellbee",
-                color = white,
+                color = White, // 🔥 Tulisan jadi PUTIH
                 fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
+                fontSize = 26.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -59,29 +58,35 @@ fun WelcomeScreen(navController: NavController) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Tombol Register (Putih agar kontras di latar biru)
                 Button(
                     onClick = { navController.navigate("register") },
-                    colors = ButtonDefaults.buttonColors(containerColor = accent),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = White,
+                        contentColor = BluePrimary
+                    ),
                     shape = RoundedCornerShape(50.dp),
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
                     Text(
                         text = "Register",
-                        color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
                 }
 
+                // Tombol Login/Start (Warna Aksen agar beda)
                 Button(
                     onClick = { navController.navigate("login") },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentGreen,
+                        contentColor = White
+                    ),
                     shape = RoundedCornerShape(50.dp),
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
                     Text(
                         text = "Lets Get Start",
-                        color = bluePrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )

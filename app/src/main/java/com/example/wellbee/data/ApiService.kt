@@ -7,6 +7,7 @@ import com.example.wellbee.data.model.SportHistory
 import com.example.wellbee.data.model.SportModel
 import com.example.wellbee.data.model.SportRequest // Pastikan import sesuai package
 import com.example.wellbee.data.model.SportResponse
+import com.example.wellbee.data.model.WeeklySportChartResponse
 import com.example.wellbee.data.model.WeightData
 import com.example.wellbee.data.model.WeightRequest
 import com.example.wellbee.data.model.WeightResponse
@@ -50,6 +51,9 @@ interface ApiService {
         @Body req: SportRequest
     ): Response<SportResponse>
 
+    @GET("api/fisik/weekly")
+    suspend fun getWeeklySport(): Response<WeeklySportChartResponse>
+
     // ====== SLEEP ======
     @POST("api/fisik/sleep")
     suspend fun catatTidur(@Body req: SleepRequest): Response<SleepResponse>
@@ -65,6 +69,9 @@ interface ApiService {
         @Path("id") id: Int,
         @Body req: SleepRequest
     ): Response<SleepResponse>
+
+    @GET("api/fisik/sleep/weekly")
+    suspend fun getWeeklySleep(): Response<WeeklySportChartResponse>
 
     // =======================
 // WEIGHT (FIX)
