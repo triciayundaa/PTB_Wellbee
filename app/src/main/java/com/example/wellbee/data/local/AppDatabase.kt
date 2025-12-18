@@ -9,7 +9,10 @@ import androidx.room.RoomDatabase
     entities = [
         ArtikelEntity::class,
         BookmarkEntity::class,
-        SearchHistoryEntity::class
+        SearchHistoryEntity::class,
+        SportEntity::class,    // Tambahan dari Fathiya
+        SleepEntity::class,    // Tambahan dari Fathiya
+        WeightEntity::class    // Tambahan dari Fathiya
     ],
     version = 5,
     exportSchema = false
@@ -19,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun artikelDao(): ArtikelDao
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun searchHistoryDao(): SearchHistoryDao
+    abstract fun fisikDao(): FisikDao  // Tambahan dari Fathiya
 
     companion object {
         @Volatile

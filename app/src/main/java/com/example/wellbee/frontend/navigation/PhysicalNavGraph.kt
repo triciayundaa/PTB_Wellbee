@@ -58,12 +58,12 @@ fun PhysicalNavGraph(navController: NavHostController) {
             }
         }
 
-            // 🟥 Riwayat
-            composable("riwayat_screen") {
-                RiwayatScreen(navController = navController)
-            }
+        // 🟥 Riwayat
+        composable("riwayat_screen") {
+            RiwayatScreen(navController = navController)
+        }
 
-            // Halaman Sport
+        // Halaman Sport
 //        composable("sport_screen") {
 //            androidx.compose.foundation.layout.Column {
 //                PhysicalHealthHeader(navController, currentTab = "Sport")
@@ -80,21 +80,21 @@ fun PhysicalNavGraph(navController: NavHostController) {
 //            WeightScreen(navController = navController)
 //        }
 
-            // Jika nanti mau aktifkan Sleep & Weight:
-            /*
-        composable("sleep_screen") {
-            Column {
-                PhysicalHealthHeader(navController, currentTab = "Sleep")
-                SleepScreen(navController)
-            }
-        }
-
-        composable("weight_screen") {
-            Column {
-                PhysicalHealthHeader(navController, currentTab = "BeratBadan")
-                WeightScreen(navController)
-            }
-        }
-        */
+        // Jika nanti mau aktifkan Sleep & Weight:
+        /*
+    composable("sleep_screen") {
+        Column {
+            PhysicalHealthHeader(navController, currentTab = "Sleep")
+            SleepScreen(navController)
         }
     }
+
+    composable("weight_screen") {
+        Column {
+            PhysicalHealthHeader(navController, currentTab = "BeratBadan")
+            WeightScreen(navController)
+        }
+    }
+    */
+    }
+}

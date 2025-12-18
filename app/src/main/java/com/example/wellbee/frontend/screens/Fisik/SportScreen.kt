@@ -1,277 +1,347 @@
 package com.example.wellbee.frontend.screens.Fisik
 
+
 import android.Manifest
 import android.content.Context
-import android.content.Intent
-import android.provider.MediaStore
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.Uri
+import android.util.Base64
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
-// Import Retrofit dan Model
-import com.example.wellbee.data.RetrofitClient
+import coil.compose.rememberAsyncImagePainter
+import com.example.wellbee.data.FisikRepository
 import com.example.wellbee.data.model.SportRequest
-import com.example.wellbee.data.model.SportResponse
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import com.example.wellbee.frontend.components.DateField
+import com.example.wellbee.frontend.components.showDatePicker
+import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.roundToInt
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun SportScreen(navController: NavHostController) {
+
+
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    // ===== State Input =====
+
     var jenisOlahraga by remember { mutableStateOf("") }
-    var durasi by remember { mutableStateOf("") } // string input
+    var durasi by remember { mutableStateOf("") }
+    var kalori by remember { mutableStateOf("") }
     var tanggal by remember { mutableStateOf("") }
-    var kalori by remember { mutableStateOf("") } // hasil auto
 
-    // ===== State UI =====
-    var isLoading by remember { mutableStateOf(false) } // Untuk loading spinner
 
-    // User ID Hardcode sementara (Ganti nanti jika sudah ada login session)
-    val currentUserId = "user_123"
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var fotoBase64 by remember { mutableStateOf<String?>(null) }
+
+
+    var isLoading by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+
     val USER_WEIGHT_KG = 60.0
 
-    // Recalc kalori setiap jenis/durasi berubah
-    LaunchedEffect(jenisOlahraga, durasi) {
-        val menit = durasi.toIntOrNull() ?: 0
-        kalori = if (menit > 0) {
-            val kcal = hitungKaloriTerbakar(jenisOlahraga, menit, USER_WEIGHT_KG)
-            "${kcal.roundToInt()} kcal"
-        } else ""
+
+    // DATE PICKER
+    LaunchedEffect(showDatePicker) {
+        if (showDatePicker) {
+            showDatePicker(context) {
+                tanggal = it
+                showDatePicker = false
+            }
+        }
     }
 
-    // Launcher izin kamera
+
+    // CAMERA LAUNCHER
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        bitmap?.let {
+            imageUri = saveImageToGallery(context, it)
+            fotoBase64 = bitmapToBase64(it)
+        }
+    }
+
+
+    // CAMERA PERMISSION
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted -> if (granted) openCamera(context) }
-    )
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            cameraLauncher.launch(null)
+        } else {
+            Toast.makeText(
+                context,
+                "Izin kamera diperlukan",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+
+
+
+    // AUTO KALORI
+    LaunchedEffect(jenisOlahraga, durasi) {
+        val menit = durasi.toIntOrNull() ?: 0
+        kalori = if (menit > 0)
+            "${hitungKaloriTerbakar(jenisOlahraga, menit, USER_WEIGHT_KG).roundToInt()} kcal"
+        else ""
+    }
+
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
             .background(Color(0xFFF7F9FB))
+            .verticalScroll(scrollState)
             .padding(16.dp)
     ) {
+
+
         Text(
-            text = "Tambahkan Data Olahraga",
+            "Tambahkan Data Olahraga",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF0E4DA4)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
 
-        // 🏃 Jenis Olahraga
+        Spacer(Modifier.height(16.dp))
+
+
+        DateField("Tanggal", tanggal) { showDatePicker = true }
+
+
+        Spacer(Modifier.height(12.dp))
+
+
         OutlinedTextField(
             value = jenisOlahraga,
             onValueChange = { jenisOlahraga = it },
             label = { Text("Jenis Olahraga") },
-            placeholder = { Text("Misalnya: Lari, Bersepeda, Yoga...") },
             modifier = Modifier.fillMaxWidth(),
-            textStyle = TextStyle(color = Color.Black),
-            shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF0E4DA4),
-                unfocusedBorderColor = Color.LightGray,
-                cursorColor = Color.Black,
                 focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black
+                unfocusedTextColor = Color.Black,
+                focusedBorderColor = Color(0xFF0E4DA4),
+                unfocusedBorderColor = Color.Gray,
+                focusedLabelColor = Color(0xFF0E4DA4),
+                unfocusedLabelColor = Color.Gray,
+                cursorColor = Color(0xFF0E4DA4)
             )
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
 
-        // ⏱️ Durasi (menit)
+        Spacer(Modifier.height(12.dp))
+
+
         OutlinedTextField(
             value = durasi,
-            onValueChange = { input ->
-                val sanitized = input.filter { it.isDigit() }
-                durasi = sanitized
-            },
+            onValueChange = { durasi = it.filter(Char::isDigit) },
             label = { Text("Durasi (menit)") },
-            placeholder = { Text("Masukkan durasi latihan") },
             modifier = Modifier.fillMaxWidth(),
-            textStyle = TextStyle(color = Color.Black),
-            shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF0E4DA4),
-                unfocusedBorderColor = Color.LightGray,
-                cursorColor = Color.Black,
                 focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black
+                unfocusedTextColor = Color.Black,
+                focusedBorderColor = Color(0xFF0E4DA4),
+                unfocusedBorderColor = Color.Gray,
+                focusedLabelColor = Color(0xFF0E4DA4),
+                unfocusedLabelColor = Color.Gray,
+                cursorColor = Color(0xFF0E4DA4)
             )
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
 
-        // 📅 Tanggal (Sementara ReadOnly)
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = tanggal,
-                onValueChange = {},
-                label = { Text("Tanggal (Belum aktif)") },
-                placeholder = { Text("Pilih tanggal latihan") },
-                readOnly = true,
-                enabled = false,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
-            )
-        }
+        Spacer(Modifier.height(12.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
 
-        // 🔥 Kalori Terbakar
         OutlinedTextField(
             value = kalori,
             onValueChange = {},
-            label = { Text("Kalori Terbakar") },
-            placeholder = { Text("Akan dihitung otomatis") },
             readOnly = true,
             enabled = false,
+            label = { Text("Kalori Terbakar") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 disabledTextColor = Color.Black,
-                disabledBorderColor = Color.LightGray
+                disabledBorderColor = Color.Gray,
+                disabledLabelColor = Color.DarkGray
             )
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
 
-        // 📸 Tombol Kamera
+        Spacer(Modifier.height(20.dp))
+
+
         Button(
-            onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B894)),
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            onClick = {
+                if (ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.CAMERA
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    cameraLauncher.launch(null)
+                } else {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B894))
         ) {
-            Text("📷 Open Camera", fontWeight = FontWeight.Bold, color = Color.White)
+            Text("📷 Ambil Foto", color = Color.White)
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
 
-        // Tombol Batal & Simpan
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Tombol Batal
+
+
+        Spacer(Modifier.height(16.dp))
+
+
+        imageUri?.let {
+            Image(
+                painter = rememberAsyncImagePainter(it),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            )
+        }
+
+
+        Spacer(Modifier.height(20.dp))
+
+
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+
+
             Button(
                 onClick = {
-                    navController.navigate("dashboard") { // Atau popBackStack()
-                        popUpTo("sport_screen") { inclusive = true }
-                    }
+                    // 🔥 CARA PINTAR: Kembali ke halaman AWAL (Dashboard) dari grafik navigasi ini
+                    // inclusive = false artinya halaman dashboardnya JANGAN ikut dibuang (tetap tampil)
+                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF)),
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                enabled = !isLoading // Disable saat loading
-            ) { Text("Batal", color = Color.White) }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Tombol Simpan (Dengan Logika Backend)
-            Button(
-                onClick = {
-                    // 1. Validasi Input
-                    if (jenisOlahraga.isEmpty() || durasi.isEmpty()) {
-                        Toast.makeText(context, "Mohon isi jenis & durasi!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        isLoading = true
-
-                        // 2. Siapkan Data (Bersihkan string)
-                        val kaloriInt = kalori.replace(" kcal", "").trim().toIntOrNull() ?: 0
-                        val durasiInt = durasi.toIntOrNull() ?: 0
-
-                        val request = SportRequest(
-                            userId = currentUserId,
-                            jenisOlahraga = jenisOlahraga,
-                            durasiMenit = durasiInt,
-                            kaloriTerbakar = kaloriInt
-                        )
-
-                        // 3. Panggil API Backend
-                        RetrofitClient.getInstance(context).catatOlahraga(request).enqueue(object : Callback<SportResponse> {
-                            override fun onResponse(call: Call<SportResponse>, response: Response<SportResponse>) {
-                                isLoading = false
-                                if (response.isSuccessful) {
-                                    Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-
-                                    // Reset Form
-                                    jenisOlahraga = ""
-                                    durasi = ""
-
-                                    // Opsional: Kembali ke dashboard setelah sukses
-                                    // navController.popBackStack()
-                                } else {
-                                    Toast.makeText(context, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-
-                            override fun onFailure(call: Call<SportResponse>, t: Throwable) {
-                                isLoading = false
-                                Toast.makeText(context, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        })
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4)),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                enabled = !isLoading // Disable tombol biar gak di-klik 2x
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF))
             ) {
-                if (isLoading) {
+                Text("Batal", color = Color.White)
+            }
+
+            Button(
+                onClick = {
+                    if (jenisOlahraga.isBlank() || durasi.isBlank()) {
+                        Toast.makeText(context, "Lengkapi data!", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+
+                    val repo = FisikRepository(context)
+//                    val req = SportRequest(
+//                        jenisOlahraga,
+//                        durasi.toInt(),
+//                        kalori.replace(" kcal", "").toInt(),
+//                        fotoBase64,
+//                        tanggal
+//                    )
+                    val req = SportRequest(
+                        jenisOlahraga = jenisOlahraga,
+                        durasiMenit = durasi.toInt(),
+                        kaloriTerbakar = kalori.replace(" kcal", "").toInt(),
+                        foto = fotoBase64,
+                        tanggal = tanggal // ⬅️ LANGSUNG KIRIM APA ADANYA
+                    )
+
+//                    val req = SportRequest(
+//                        jenisOlahraga,
+//                        durasi.toInt(),
+//                        kalori.replace(" kcal", "").toInt(),
+//                        fotoBase64,
+//                        formattedTanggal
+//                    )
+
+
+                    scope.launch {
+                        isLoading = true
+                        val result = repo.catatOlahraga(req)
+                        isLoading = false
+
+
+                        if (result.isSuccess) {
+                            Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
+                            jenisOlahraga = ""
+                            durasi = ""
+                            kalori = ""
+                            tanggal = ""
+                            imageUri = null
+                            fotoBase64 = null
+                        } else {
+                            Toast.makeText(context, "Gagal menyimpan", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
+            ) {
+                if (isLoading)
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
-                } else {
+                else
                     Text("Simpan", color = Color.White)
-                }
             }
         }
     }
 }
 
-// 📸 Buka kamera
-fun openCamera(context: Context) {
-    val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-    context.startActivity(intent)
+
+/* ================== HELPERS ================== */
+
+
+fun saveImageToGallery(context: Context, bitmap: Bitmap): Uri {
+    val file = File(context.getExternalFilesDir(null), "sport_${System.currentTimeMillis()}.jpg")
+    FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it) }
+    return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
 }
 
-/**
- * Hitung kalori terbakar berbasis MET.
- */
-fun hitungKaloriTerbakar(jenis: String, durasiMenit: Int, beratKg: Double): Double {
-    val met = when (jenis.trim().lowercase()) {
-        "lari", "jogging", "lari jogging" -> 8.3
-        "jalan", "jalan cepat" -> 3.8
-        "bersepeda", "sepeda", "cycling" -> 7.5
-        "renang", "berenang" -> 6.0
-        "yoga" -> 3.0
-        "skipping", "lompat tali" -> 12.3
-        "basket", "basketball" -> 6.5
-        "futsal", "sepak bola", "sepakbola" -> 7.0
-        "badminton", "bulu tangkis", "bulutangkis" -> 5.5
+
+fun bitmapToBase64(bitmap: Bitmap): String {
+    val out = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+    return Base64.encodeToString(out.toByteArray(), Base64.DEFAULT)
+}
+
+
+fun hitungKaloriTerbakar(jenis: String, durasi: Int, berat: Double): Double {
+    val met = when (jenis.lowercase()) {
+        "lari", "jogging" -> 8.3
+        "jalan" -> 3.8
+        "bersepeda" -> 7.5
         else -> 5.0
     }
-    return met * 3.5 * beratKg / 200.0 * durasiMenit
+    return met * 3.5 * berat / 200 * durasi
 }

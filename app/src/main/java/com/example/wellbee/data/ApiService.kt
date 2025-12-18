@@ -1,21 +1,31 @@
 package com.example.wellbee.data
 
-import com.example.wellbee.data.model.CategoriesResponse
-import com.example.wellbee.data.model.PublicArticlesResponse
-import com.example.wellbee.data.model.SportRequest
-import com.example.wellbee.data.model.SportResponse
-import com.example.wellbee.data.model.CreateArticleRequest
-import com.example.wellbee.data.model.UploadImageResponse
-import com.example.wellbee.data.model.BookmarkListResponse
+// ==========================================
+// 1. IMPORT (GABUNGAN DARI MAIN & FATHIYA)
+// ==========================================
 import com.example.wellbee.data.model.AddBookmarkRequest
+import com.example.wellbee.data.model.BookmarkListResponse
+import com.example.wellbee.data.model.CategoriesResponse
+import com.example.wellbee.data.model.CreateArticleRequest
 import com.example.wellbee.data.model.MessageResponse
 import com.example.wellbee.data.model.MyArticlesResponse
+import com.example.wellbee.data.model.PublicArticlesResponse
 import com.example.wellbee.data.model.ResetPasswordRequest
+import com.example.wellbee.data.model.SleepData
+import com.example.wellbee.data.model.SleepRequest
+import com.example.wellbee.data.model.SleepResponse
+import com.example.wellbee.data.model.SportHistory
+import com.example.wellbee.data.model.SportRequest
+import com.example.wellbee.data.model.SportResponse
 import com.example.wellbee.data.model.UpdateArticleStatusRequest
 import com.example.wellbee.data.model.UpdateMyArticleResponse
+import com.example.wellbee.data.model.UploadImageResponse
+import com.example.wellbee.data.model.WeeklySportChartResponse
+import com.example.wellbee.data.model.WeightData
+import com.example.wellbee.data.model.WeightRequest
+import com.example.wellbee.data.model.WeightResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
-import retrofit2.Call
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -29,7 +39,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 // ==========================
-// AUTH REQUEST/RESPONSE
+// 2. DATA CLASSES (AUTH)
 // ==========================
 data class LoginRequest(
     val email: String,
@@ -60,13 +70,14 @@ data class RegisterResponse(
     val message: String
 )
 
-
 // ==========================
-// API SERVICE
+// 3. INTERFACE API SERVICE
 // ==========================
 interface ApiService {
 
-    // ===== AUTH =====
+    // ==========================
+    // AUTHENTICATION
+    // ==========================
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
@@ -81,80 +92,107 @@ interface ApiService {
         @Body request: ResetPasswordRequest
     ): Response<MessageResponse>
 
-
-    // ===== FISIK / OLAHRAGA =====
+    // ==========================
+    // FISIK - OLAHRAGA (SPORT)
+    // ==========================
     @POST("api/fisik/olahraga")
-    fun catatOlahraga(@Body request: SportRequest): Call<SportResponse>
+    suspend fun catatOlahraga(@Body req: SportRequest): Response<SportResponse>
 
-    // ===== EDUKASI - ARTIKEL =====
+    @DELETE("api/fisik/olahraga/{id}")
+    suspend fun deleteSport(@Path("id") id: Int): Response<SportResponse>
 
-    // Get artikel publik (static + user uploaded)
+    @GET("api/fisik/riwayat")
+    suspend fun getSportHistory(): Response<List<SportHistory>>
+
+    @PUT("api/fisik/olahraga/{id}")
+    suspend fun updateSport(
+        @Path("id") id: Int,
+        @Body req: SportRequest
+    ): Response<SportResponse>
+
+    @GET("api/fisik/weekly")
+    suspend fun getWeeklySport(): Response<WeeklySportChartResponse>
+
+    // ==========================
+    // FISIK - TIDUR (SLEEP)
+    // ==========================
+    @POST("api/fisik/sleep")
+    suspend fun catatTidur(@Body req: SleepRequest): Response<SleepResponse>
+
+    @GET("api/fisik/sleep/riwayat")
+    suspend fun getSleepHistory(): Response<List<SleepData>>
+
+    @DELETE("api/fisik/sleep/{id}")
+    suspend fun deleteSleep(@Path("id") id: Int): Response<SleepResponse>
+
+    @PUT("api/fisik/sleep/{id}")
+    suspend fun updateSleep(
+        @Path("id") id: Int,
+        @Body req: SleepRequest
+    ): Response<SleepResponse>
+
+    @GET("api/fisik/sleep/weekly")
+    suspend fun getWeeklySleep(): Response<WeeklySportChartResponse>
+
+    // ==========================
+    // FISIK - BERAT BADAN (WEIGHT)
+    // ==========================
+    @POST("api/fisik/weight")
+    suspend fun catatWeight(
+        @Body req: WeightRequest
+    ): Response<WeightResponse>
+
+    @GET("api/fisik/weight/riwayat")
+    suspend fun getWeightHistory(): Response<List<WeightData>>
+
+    @DELETE("api/fisik/weight/{id}")
+    suspend fun deleteWeight(@Path("id") id: Int): Response<Unit>
+
+    @PUT("api/fisik/weight/{id}")
+    suspend fun updateWeight(
+        @Path("id") id: Int,
+        @Body req: WeightRequest
+    ): Response<Unit>
+
+    // ==========================
+    // EDUKASI - ARTIKEL (PUBLIK)
+    // ==========================
     @GET("api/edukasi/articles")
     suspend fun getPublicArticles(
         @Query("search") search: String? = null
     ): PublicArticlesResponse
 
-    // Get kategori edukasi (daftar tetap dari backend)
     @GET("api/edukasi/categories")
     suspend fun getCategories(): CategoriesResponse
 
-    // Create artikel user
-    @POST("api/edukasi/my-articles")
-    suspend fun createMyArticle(
-        @Body request: CreateArticleRequest
-    ): Response<MessageResponse>
-
-    // Upload gambar artikel
     @Multipart
     @POST("api/upload/image")
     suspend fun uploadImage(
         @Part image: MultipartBody.Part
     ): Response<UploadImageResponse>
 
-    // ===== EDUKASI - BOOKMARK =====
+    // ==========================
+    // EDUKASI - ARTIKEL SAYA (MY ARTICLES)
+    // ==========================
+    @POST("api/edukasi/my-articles")
+    suspend fun createMyArticle(
+        @Body request: CreateArticleRequest
+    ): Response<MessageResponse>
 
-    // Ambil semua bookmark milik user
-    @GET("api/edukasi/bookmarks")
-    suspend fun getBookmarks(): BookmarkListResponse
-
-    // Tambah bookmark baru
-    @POST("api/edukasi/bookmarks")
-    suspend fun addBookmark(
-        @Body body: AddBookmarkRequest
-    ): MessageResponse
-
-    // Hapus bookmark
-    @DELETE("api/edukasi/bookmarks/{id}")
-    suspend fun deleteBookmark(
-        @Path("id") bookmarkId: Int
-    ): MessageResponse
-
-    // Tandai bookmark sudah dibaca
-    @PATCH("api/edukasi/bookmarks/{id}/read")
-    suspend fun markBookmarkAsRead(
-        @Path("id") bookmarkId: Int
-    ): MessageResponse
-
-    // ===== EDUKASI - ARTIKEL SAYA =====
-
-    // Ambil artikel milik user login
     @GET("api/edukasi/my-articles")
     suspend fun getMyArticles(): MyArticlesResponse
 
-    // Ubah status artikel saya (draft / uploaded / canceled)
     @PATCH("api/edukasi/my-articles/{id}/status")
     suspend fun updateMyArticleStatus(
         @Path("id") id: Int,
         @Body request: UpdateArticleStatusRequest
     ): Response<MessageResponse>
 
-    // Hapus artikel saya
     @DELETE("api/edukasi/my-articles/{id}")
     suspend fun deleteMyArticle(
         @Path("id") id: Int
     ): Response<MessageResponse>
 
-    // Update artikel saya (termasuk opsi ganti gambar)
     @Multipart
     @PUT("api/edukasi/my-articles/{id}")
     suspend fun updateMyArticle(
@@ -166,4 +204,25 @@ interface ApiService {
         @Part("tag") tag: RequestBody,
         @Part gambar: MultipartBody.Part?
     ): UpdateMyArticleResponse
+
+    // ==========================
+    // EDUKASI - BOOKMARK
+    // ==========================
+    @GET("api/edukasi/bookmarks")
+    suspend fun getBookmarks(): BookmarkListResponse
+
+    @POST("api/edukasi/bookmarks")
+    suspend fun addBookmark(
+        @Body body: AddBookmarkRequest
+    ): MessageResponse
+
+    @DELETE("api/edukasi/bookmarks/{id}")
+    suspend fun deleteBookmark(
+        @Path("id") bookmarkId: Int
+    ): MessageResponse
+
+    @PATCH("api/edukasi/bookmarks/{id}/read")
+    suspend fun markBookmarkAsRead(
+        @Path("id") bookmarkId: Int
+    ): MessageResponse
 }

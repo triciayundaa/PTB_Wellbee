@@ -66,6 +66,7 @@ dependencies {
     implementation("com.patrykandpatrick.vico:views:1.14.0")
     implementation("com.google.accompanist:accompanist-navigation-animation:0.32.0")
     implementation("androidx.compose.animation:animation")
+    implementation("androidx.work:work-runtime-ktx:2.8.1") // atau versi terbaru
 
     //backend
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -77,6 +78,12 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.0")
     implementation("androidx.compose.material:material-icons-extended:1.6.8")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.work:work-runtime-ktx:2.8.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

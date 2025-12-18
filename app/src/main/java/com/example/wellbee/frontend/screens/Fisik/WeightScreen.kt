@@ -1,9 +1,9 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package com.example.wellbee.frontend.screens.Fisik
 
+import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,31 +13,57 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.wellbee.data.FisikRepository
+import com.example.wellbee.data.model.WeightRequest
+import com.example.wellbee.frontend.components.DateField
 import com.example.wellbee.frontend.components.showDatePicker
+import kotlinx.coroutines.launch
 
 @Composable
 fun WeightScreen(navController: NavHostController) {
+
     val scrollState = rememberScrollState()
-    val activity = LocalActivity.current  // ✅ Wajib diambil di luar lambda
+    val activity = LocalActivity.current
+    val context = LocalContext.current
+    val repo = remember { FisikRepository(context) }
+    val scope = rememberCoroutineScope()
 
-    var beratBadan by remember { mutableStateOf("") }
-    var tinggiBadan by remember { mutableStateOf("") }
+    // Warna Tema
+    val BluePrimary = Color(0xFF0E4DA4)
+
+    // 🔥 PENTING: Setting Warna Input Form (Agar Tulisan Kelihatan)
+    val inputColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.Black,     // Teks saat mengetik jadi HITAM
+        unfocusedTextColor = Color.Black,   // Teks saat tidak diklik jadi HITAM
+        cursorColor = BluePrimary,          // Kursor warna Biru
+        focusedBorderColor = BluePrimary,   // Garis pinggir saat aktif Biru
+        unfocusedBorderColor = Color.Gray,  // Garis pinggir diam Abu
+        focusedLabelColor = BluePrimary,    // Label saat aktif Biru
+        unfocusedLabelColor = Color.Gray    // Label diam Abu
+    )
+
+    // ================= STATE =================
+    var berat by remember { mutableStateOf("") }
+    var tinggi by remember { mutableStateOf("") }
     var tanggal by remember { mutableStateOf("") }
-    var bmi by remember { mutableStateOf("") }
-    var kategori by remember { mutableStateOf("") }
-    var showDialog by remember { mutableStateOf(false) }
 
-    // 🔢 Hitung BMI otomatis
-    LaunchedEffect(beratBadan, tinggiBadan) {
-        val berat = beratBadan.toDoubleOrNull()
-        val tinggi = tinggiBadan.toDoubleOrNull()
-        if (berat != null && tinggi != null && tinggi > 0) {
-            val bmiValue = berat / ((tinggi / 100) * (tinggi / 100))
-            bmi = String.format("%.1f", bmiValue)
+    var bmi by remember { mutableStateOf(0.0) }
+    var kategori by remember { mutableStateOf("") }
+
+    // ================= PARSE INPUT =================
+    val beratVal = berat.replace(",", ".").toDoubleOrNull()
+    val tinggiVal = tinggi.replace(",", ".").toDoubleOrNull()
+
+    // ================= HITUNG BMI =================
+    LaunchedEffect(beratVal, tinggiVal) {
+        if (beratVal != null && tinggiVal != null && tinggiVal > 0) {
+            val bmiValue = beratVal / ((tinggiVal / 100) * (tinggiVal / 100))
+            bmi = bmiValue
             kategori = when {
                 bmiValue < 18.5 -> "Kurus"
                 bmiValue < 25 -> "Normal"
@@ -45,184 +71,156 @@ fun WeightScreen(navController: NavHostController) {
                 else -> "Obesitas"
             }
         } else {
-            bmi = ""
+            bmi = 0.0
             kategori = ""
         }
     }
 
-    // 🧱 UI utama
+    // ================= VALIDASI =================
+    val isValid = beratVal != null &&
+            tinggiVal != null &&
+            beratVal > 0 &&
+            tinggiVal > 0 &&
+            tanggal.isNotBlank()
+
+    // ================= UI =================
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
             .background(Color(0xFFF7F9FB))
+            .verticalScroll(scrollState)
             .padding(16.dp)
     ) {
+
         Text(
-            text = "Catat Berat & Tinggi Badan Kamu",
+            text = "Catat Berat & Tinggi Badan",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0E4DA4)
+            color = BluePrimary
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // ⚖️ Berat badan
+        // Input Berat Badan
         OutlinedTextField(
-            value = beratBadan,
-            onValueChange = { beratBadan = it.filter { c -> c.isDigit() || c == '.' } },
+            value = berat,
+            onValueChange = {
+                berat = it.replace(",", ".")
+                    .filter { c -> c.isDigit() || c == '.' }
+            },
             label = { Text("Berat Badan (kg)") },
-            placeholder = { Text("Contoh: 68") },
+            placeholder = { Text("Contoh: 65.5") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF0E4DA4),
-                unfocusedBorderColor = Color.LightGray,
-                focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black
-            )
+            colors = inputColors // 🔥 Pasang warna disini
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // 📏 Tinggi badan
+        // Input Tinggi Badan
         OutlinedTextField(
-            value = tinggiBadan,
-            onValueChange = { tinggiBadan = it.filter { c -> c.isDigit() || c == '.' } },
+            value = tinggi,
+            onValueChange = {
+                tinggi = it.replace(",", ".")
+                    .filter { c -> c.isDigit() || c == '.' }
+            },
             label = { Text("Tinggi Badan (cm)") },
             placeholder = { Text("Contoh: 170") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF0E4DA4),
-                unfocusedBorderColor = Color.LightGray,
-                focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black
-            )
+            colors = inputColors // 🔥 Pasang warna disini
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // 📅 Pilih tanggal
-        OutlinedTextField(
+        DateField(
+            label = "Tanggal Pengukuran",
             value = tanggal,
-            onValueChange = {},
-            label = { Text("Tanggal Pengukuran") },
-            placeholder = { Text("Pilih tanggal") },
-            readOnly = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    activity?.let {
-                        showDatePicker(
-                            context = it,
-                            onDateSelected = { pickedDate ->
-                                tanggal = pickedDate
-                            }
-                        )
-                    }
-                },
-            shape = RoundedCornerShape(10.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF0E4DA4),
-                unfocusedBorderColor = Color.LightGray,
-                focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black
-            )
+            onClick = {
+                activity?.let {
+                    showDatePicker(it) { tanggal = it }
+                }
+            }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // 📊 Kartu BMI
-        if (bmi.isNotEmpty()) {
+        if (bmi > 0) {
             val cardColor = when (kategori) {
                 "Kurus" -> Color(0xFFD6EAF8)
                 "Normal" -> Color(0xFFDFFFE3)
                 "Kelebihan Berat" -> Color(0xFFFFF7D6)
-                "Obesitas" -> Color(0xFFFFD6D6)
-                else -> Color.White
+                else -> Color(0xFFFFD6D6)
             }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = cardColor),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = cardColor)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("BMI Anda", color = Color(0xFF0E4DA4), fontWeight = FontWeight.Bold)
-                    Text(bmi, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                    Text(kategori, fontSize = 16.sp, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Divider(color = Color.LightGray)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text("Kurus < 18.5")
-                        Text("Normal 18.5 - 24.9")
-                        Text("Kelebihan Berat 25 - 29.9")
-                        Text("Obesitas ≥ 30")
-                    }
+                    Text("BMI Anda", fontWeight = FontWeight.Bold, color = Color.Black)
+                    Text(String.format("%.1f", bmi), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    Text(kategori, color = Color.Black)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(Modifier.height(30.dp))
 
-        // Tombol aksi
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+
             Button(
                 onClick = {
-                    beratBadan = ""
-                    tinggiBadan = ""
-                    tanggal = ""
-                    bmi = ""
-                    kategori = ""
-                    navController.navigate("dashboard") {
-                        popUpTo("weight_screen") { inclusive = true }
-                    }
+                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF)),
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF74B9FF))
             ) {
                 Text("Batal", color = Color.White)
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(Modifier.width(16.dp))
 
             Button(
-                onClick = { showDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4)),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Simpan", color = Color.White)
-            }
-        }
+                onClick = {
+                    if (isValid) {
+                        val req = WeightRequest(
+                            beratBadan = beratVal!!,
+                            tinggiBadan = tinggiVal!!,
+                            bmi = bmi,
+                            kategori = kategori,
+                            tanggal = tanggal
+                        )
 
-        // 🔔 Popup konfirmasi simpan
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                title = { Text("Berhasil") },
-                text = { Text("Data berat badan berhasil disimpan!") },
-                confirmButton = {
-                    Button(
-                        onClick = { showDialog = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
-                    ) {
-                        Text("OK", color = Color.White)
+                        scope.launch {
+                            val result = repo.catatWeight(req)
+                            if (result.isSuccess) {
+                                Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
+                                // Reset Input
+                                berat = ""
+                                tinggi = ""
+                                tanggal = ""
+                            } else {
+                                Toast.makeText(context, "Gagal menyimpan", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        Toast.makeText(context, "Mohon lengkapi semua data!", Toast.LENGTH_SHORT).show()
                     }
                 },
-                containerColor = Color.White,
-                tonalElevation = 4.dp,
-                shape = RoundedCornerShape(16.dp)
-            )
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BluePrimary,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Simpan")
+            }
         }
     }
 }
