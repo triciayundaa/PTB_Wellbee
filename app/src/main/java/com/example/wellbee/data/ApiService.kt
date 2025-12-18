@@ -10,6 +10,7 @@ import com.example.wellbee.data.model.BookmarkListResponse
 import com.example.wellbee.data.model.AddBookmarkRequest
 import com.example.wellbee.data.model.MessageResponse
 import com.example.wellbee.data.model.MyArticlesResponse
+import com.example.wellbee.data.model.ResetPasswordRequest
 import com.example.wellbee.data.model.UpdateArticleStatusRequest
 import com.example.wellbee.data.model.UpdateMyArticleResponse
 import okhttp3.MultipartBody
@@ -44,7 +45,8 @@ data class LoginResponse(
 data class UserData(
     val id: Int,
     val username: String,
-    val email: String
+    val email: String,
+    val phone: String?
 )
 
 data class RegisterRequest(
@@ -68,8 +70,17 @@ interface ApiService {
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
+    @GET("api/auth/me")
+    suspend fun getProfile(): Response<UserData>
+
     @POST("api/auth/register")
     suspend fun register(@Body request: RegisterRequest): Response<RegisterResponse>
+
+    @POST("api/auth/reset-password")
+    suspend fun resetPassword(
+        @Body request: ResetPasswordRequest
+    ): Response<MessageResponse>
+
 
     // ===== FISIK / OLAHRAGA =====
     @POST("api/fisik/olahraga")

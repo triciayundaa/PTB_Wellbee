@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 class EducationViewModel(context: Context) : ViewModel() {
 
@@ -37,11 +38,11 @@ class EducationViewModel(context: Context) : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
-                // Memuat artikel publik dan diurutkan terbaru di atas
                 articles = repo.getPublicArticles()
                     .sortedByDescending { it.tanggal }
+            } catch (e: IOException) {
+                errorMessage = "Tidak ada koneksi internet. Silakan coba lagi."
             } catch (e: Exception) {
-                e.printStackTrace()
                 errorMessage = e.message ?: "Gagal memuat artikel"
             } finally {
                 isLoading = false
@@ -56,8 +57,9 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 articles = repo.getPublicArticles(query.takeIf { it.isNotBlank() })
                     .sortedByDescending { it.tanggal }
+            } catch (e: IOException) {
+                errorMessage = "Pencarian gagal: Periksa koneksi internet Anda."
             } catch (e: Exception) {
-                e.printStackTrace()
                 errorMessage = e.message ?: "Gagal mencari artikel"
             } finally {
                 isLoading = false
@@ -70,6 +72,7 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 categories = repo.getCategories()
             } catch (e: Exception) {
+                // Untuk kategori, kita biarkan diam (silent error) agar tidak mengganggu UI utama
                 e.printStackTrace()
             }
         }
@@ -106,7 +109,6 @@ class EducationViewModel(context: Context) : ViewModel() {
     // UPLOAD ARTIKEL (BACKEND)
     // ==========================
 
-    // PERBAIKAN: Ditambahkan parameter onSuccess: () -> Unit
     fun uploadArticleWithImage(
         imageUri: Uri?,
         kategori: String,
@@ -115,13 +117,12 @@ class EducationViewModel(context: Context) : ViewModel() {
         title: String,
         content: String,
         status: String,
-        onSuccess: () -> Unit = {} // Parameter baru untuk sinkronisasi navigasi
+        onSuccess: () -> Unit = {}
     ) {
         viewModelScope.launch {
+            isLoading = true
+            uploadStatus = null
             try {
-                isLoading = true // Aktifkan loading saat upload
-                uploadStatus = null
-
                 val imageUrl = when {
                     imageUri == null -> null
                     imageUri.toString().startsWith("http", true) -> imageUri.toString()
@@ -140,20 +141,19 @@ class EducationViewModel(context: Context) : ViewModel() {
 
                 if (success) {
                     uploadStatus = "SUCCESS"
-                    // Paksa memuat ulang data terbaru dari server agar list sinkron
-                    val updatedMyArticles = repo.getMyArticles()
-                    myArticles = updatedMyArticles.sortedByDescending { it.id }
-
-                    val updatedPublic = repo.getPublicArticles()
-                    articles = updatedPublic.sortedByDescending { it.tanggal }
-
-                    onSuccess() // Navigasi dilakukan HANYA setelah data berhasil di-refresh
+                    // Refresh data setelah upload
+                    loadMyArticles()
+                    loadArticles()
+                    onSuccess()
                 } else {
                     uploadStatus = "FAILED"
                 }
+            } catch (e: IOException) {
+                uploadStatus = "ERROR_CONNECTION"
+                errorMessage = "Gagal upload: Koneksi internet terputus."
             } catch (e: Exception) {
-                e.printStackTrace()
                 uploadStatus = "ERROR"
+                errorMessage = e.message
             } finally {
                 isLoading = false
             }
@@ -179,8 +179,9 @@ class EducationViewModel(context: Context) : ViewModel() {
             bookmarkError = null
             try {
                 bookmarks = repo.getBookmarks()
+            } catch (e: IOException) {
+                bookmarkError = "Koneksi terputus. Gagal memuat bookmark."
             } catch (e: Exception) {
-                e.printStackTrace()
                 bookmarkError = e.message ?: "Gagal memuat bookmark"
             } finally {
                 isLoadingBookmarks = false
@@ -195,8 +196,7 @@ class EducationViewModel(context: Context) : ViewModel() {
                 repo.addBookmark(artikelId, jenis)
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
-                e.printStackTrace()
-                bookmarkError = e.message ?: "Gagal menambah bookmark"
+                bookmarkError = "Gagal menambah bookmark: Cek internet Anda."
             }
         }
     }
@@ -208,8 +208,7 @@ class EducationViewModel(context: Context) : ViewModel() {
                 repo.deleteBookmark(bookmarkId)
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
-                e.printStackTrace()
-                bookmarkError = e.message ?: "Gagal menghapus bookmark"
+                bookmarkError = "Gagal menghapus bookmark."
             }
         }
     }
@@ -221,8 +220,7 @@ class EducationViewModel(context: Context) : ViewModel() {
                 repo.markBookmarkAsRead(bookmarkId)
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
-                e.printStackTrace()
-                bookmarkError = e.message ?: "Gagal menandai terbaca"
+                bookmarkError = "Gagal update status baca."
             }
         }
     }
@@ -245,10 +243,10 @@ class EducationViewModel(context: Context) : ViewModel() {
             isLoadingMyArticles = true
             myArticleError = null
             try {
-                // Selalu urutkan berdasarkan ID terbesar (terbaru) agar muncul teratas
                 myArticles = repo.getMyArticles().sortedByDescending { it.id }
+            } catch (e: IOException) {
+                myArticleError = "Koneksi internet terputus. Silakan coba lagi."
             } catch (e: Exception) {
-                e.printStackTrace()
                 myArticleError = e.message ?: "Gagal memuat artikel saya"
             } finally {
                 isLoadingMyArticles = false
@@ -259,16 +257,18 @@ class EducationViewModel(context: Context) : ViewModel() {
     fun changeMyArticleStatus(articleId: Int, newStatus: String) {
         viewModelScope.launch {
             try {
+                myArticleError = null
                 val success = repo.updateMyArticleStatus(articleId, newStatus)
                 if (success) {
                     myArticles = myArticles.map {
                         if (it.id == articleId) it.copy(status = newStatus) else it
                     }
-                    // Refresh artikel publik juga jika status berubah ke "uploaded"
                     loadArticles()
                 }
+            } catch (e: IOException) {
+                myArticleError = "Gagal mengubah status: Cek koneksi internet."
             } catch (e: Exception) {
-                e.printStackTrace()
+                myArticleError = "Gagal memperbarui status artikel."
             }
         }
     }
@@ -276,13 +276,16 @@ class EducationViewModel(context: Context) : ViewModel() {
     fun deleteMyArticle(articleId: Int) {
         viewModelScope.launch {
             try {
+                myArticleError = null
                 val success = repo.deleteMyArticle(articleId)
                 if (success) {
                     myArticles = myArticles.filter { it.id != articleId }
-                    loadArticles() // Sinkronkan halaman publik
+                    loadArticles()
                 }
+            } catch (e: IOException) {
+                myArticleError = "Gagal menghapus: Koneksi internet terputus."
             } catch (e: Exception) {
-                e.printStackTrace()
+                myArticleError = "Terjadi kesalahan saat menghapus artikel."
             }
         }
     }
@@ -299,11 +302,10 @@ class EducationViewModel(context: Context) : ViewModel() {
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
+            isLoadingMyArticles = true
+            myArticleError = null
             try {
-                isLoadingMyArticles = true
-                myArticleError = null
-
-                val updated = repo.updateMyArticle(
+                repo.updateMyArticle(
                     id = id,
                     judul = title,
                     isi = content,
@@ -313,13 +315,14 @@ class EducationViewModel(context: Context) : ViewModel() {
                     imageUri = imageUri
                 )
 
-                // Refresh seluruh list agar urutan tetap benar setelah update
                 myArticles = repo.getMyArticles().sortedByDescending { it.id }
-                loadArticles() // Sinkronkan ke publik jika artikel sudah terupload
-
+                loadArticles()
                 onSuccess()
+            } catch (e: IOException) {
+                val msg = "Gagal update: Koneksi internet terputus."
+                myArticleError = msg
+                onError(msg)
             } catch (e: Exception) {
-                e.printStackTrace()
                 val msg = e.message ?: "Gagal mengupdate artikel"
                 myArticleError = msg
                 onError(msg)

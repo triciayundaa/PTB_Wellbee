@@ -3,6 +3,7 @@
 package com.example.wellbee.frontend.screens.Edukasi
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -46,17 +47,18 @@ fun CreateArticlePreviewScreen(
     imageUri: String? = null,
     articleId: String? = null
 ) {
+    val context = LocalContext.current
     val imageUriParsed = remember(imageUri) {
         imageUri?.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
     }
 
-    var infoMessage by remember { mutableStateOf<String?>(null) }
-    val isLoading = viewModel.isLoading // 🔹 Mengambil state loading dari ViewModel
+    // Mengambil state dari ViewModel
+    val isLoading = viewModel.isLoading
+    val serverError = viewModel.errorMessage // Error dari sinkronisasi internet di ViewModel
 
-    // Fungsi navigasi yang membersihkan stack agar data terbaru muncul paling atas
+    // Fungsi navigasi sukses
     fun navigateToMyArticles() {
         navController.navigate("my_articles") {
-            // Membersihkan history navigasi pembuatan artikel agar tidak kembali ke Preview saat tekan back
             popUpTo("education_list") { inclusive = false }
             launchSingleTop = true
         }
@@ -75,7 +77,7 @@ fun CreateArticlePreviewScreen(
                 content = content,
                 status = status,
                 onSuccess = {
-                    // 🔹 Navigasi HANYA dilakukan setelah data berhasil di-refresh di ViewModel
+                    Toast.makeText(context, "Berhasil menyimpan artikel!", Toast.LENGTH_SHORT).show()
                     navigateToMyArticles()
                 }
             )
@@ -91,13 +93,11 @@ fun CreateArticlePreviewScreen(
                 content = content,
                 imageUri = imageUriParsed,
                 onSuccess = {
-                    // Pastikan status diperbarui sesuai pilihan user (Draft atau Uploaded)
                     viewModel.changeMyArticleStatus(id, status)
+                    Toast.makeText(context, "Berhasil memperbarui artikel!", Toast.LENGTH_SHORT).show()
                     navigateToMyArticles()
                 },
-                onError = { error ->
-                    infoMessage = error
-                }
+                onError = { /* Error ditangani via serverError Snackbar */ }
             )
         }
     }
@@ -109,7 +109,22 @@ fun CreateArticlePreviewScreen(
                 onBackClick = { navController.popBackStack() }
             )
         },
-        containerColor = GrayBackground
+        containerColor = GrayBackground,
+        snackbarHost = {
+            // Menampilkan pesan error jika internet terputus atau gagal server
+            serverError?.let { msg ->
+                Snackbar(
+                    modifier = Modifier.padding(16.dp),
+                    containerColor = Color(0xFFCC3300),
+                    contentColor = Color.White,
+                    action = {
+                        TextButton(onClick = { viewModel.loadArticles() }) { // Trigger dummy load untuk clear error
+                            Text("MENGERTI", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                ) { Text(msg) }
+            }
+        }
     ) { padding ->
 
         Column(
@@ -128,7 +143,6 @@ fun CreateArticlePreviewScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(bottom = 24.dp)) {
-                    // IMAGE
                     Image(
                         painter = if (imageUriParsed != null)
                             rememberAsyncImagePainter(imageUriParsed)
@@ -196,7 +210,6 @@ fun CreateArticlePreviewScreen(
 
             // --- TOMBOL AKSI ---
             if (isLoading) {
-                // Tampilkan indikator loading agar user tidak menekan tombol berkali-kali
                 Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = BluePrimary)
                 }
@@ -237,18 +250,5 @@ fun CreateArticlePreviewScreen(
                 }
             }
         }
-    }
-
-    // Snackbar untuk Error/Info
-    infoMessage?.let {
-        Snackbar(
-            modifier = Modifier.padding(16.dp),
-            containerColor = Color(0xFF323232),
-            action = {
-                TextButton(onClick = { infoMessage = null }) {
-                    Text("Tutup", color = Color.Yellow)
-                }
-            }
-        ) { Text(it, color = Color.White) }
     }
 }

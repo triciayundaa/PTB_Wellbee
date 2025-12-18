@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,19 +55,39 @@ fun HomeScreen(navController: NavHostController) {
             .fillMaxSize()
             .background(GrayBackground)
     ) {
-        // Header
+        // Header dengan Judul dan Ikon Profil
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(BluePrimary)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp) // Penyesuaian padding untuk row
         ) {
-            Text(
-                "Wellbee",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Wellbee",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp
+                )
+
+                // 🔹 IKON PROFIL UNTUK NAVIGASI KE PROFILE SCREEN
+                IconButton(
+                    onClick = {
+                        // Ini akan mencari rute "profile" di parentNavController (NavGraph utama)
+                        navController.navigate("profile")
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Profile",
+                        tint = Color.White
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(16.dp))

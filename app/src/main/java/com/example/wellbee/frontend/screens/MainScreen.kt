@@ -49,7 +49,7 @@ fun MainScreen(parentNavController: NavHostController) {
                 // HOME
                 // ============================
                 composable("home") {
-                    HomeScreen(navController = bottomNavController)
+                    HomeScreen(navController = parentNavController)
                 }
 
                 // ============================

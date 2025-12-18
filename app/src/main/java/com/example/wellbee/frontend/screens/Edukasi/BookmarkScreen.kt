@@ -3,7 +3,6 @@
 package com.example.wellbee.frontend.screens.Edukasi
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +30,7 @@ import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.BookmarkArticleCard
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
+import com.example.wellbee.ui.theme.WellbeeTheme
 import kotlinx.coroutines.launch
 
 @Composable
@@ -39,7 +39,6 @@ fun BookmarkScreen(
     viewModel: EducationViewModel,
 ) {
     val context = LocalContext.current
-
     val bookmarks = viewModel.bookmarks
     val isLoading = viewModel.isLoadingBookmarks
     val error = viewModel.bookmarkError
@@ -74,21 +73,19 @@ fun BookmarkScreen(
         topBar = { BookmarkTopBar(navController) },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
-
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
 
             ReminderCard(
-                unreadCount = unreadCount,
-                onMyArticlesClick = {}
+                unreadCount = unreadCount
             )
 
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = BluePrimary)
                 }
             }
@@ -133,6 +130,7 @@ fun BookmarkScreen(
             }
         }
 
+        // Dialog handling tetap sama
         if (showConfirmDialog && bookmarkPendingDelete != null) {
             ConfirmDeleteDialog(
                 onCancel = {
@@ -151,20 +149,19 @@ fun BookmarkScreen(
         }
 
         if (showSuccessDialog) {
-            DeleteSuccessDialog(
-                onDismiss = { showSuccessDialog = false }
-            )
+            DeleteSuccessDialog(onDismiss = { showSuccessDialog = false })
         }
     }
 }
 
-/* ─── TOP BAR ─── */
+/* ─── TOP BAR (REFINED) ─── */
 
 @Composable
 private fun BookmarkTopBar(navController: NavHostController?) {
     Surface(
         color = BluePrimary,
-        shadowElevation = 4.dp
+        shadowElevation = 8.dp,
+        shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
     ) {
         Column(
             modifier = Modifier
@@ -172,19 +169,17 @@ private fun BookmarkTopBar(navController: NavHostController?) {
                 .statusBarsPadding()
                 .padding(bottom = 20.dp)
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(56.dp),
+                contentAlignment = Alignment.Center
             ) {
-                IconButton(onClick = { navController?.popBackStack() }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Kembali",
-                        tint = Color.White
-                    )
+                IconButton(
+                    onClick = { navController?.popBackStack() },
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp)
+                ) {
+                    Icon(Icons.Default.ArrowBack, "Kembali", tint = Color.White)
                 }
 
                 Text(
@@ -195,12 +190,14 @@ private fun BookmarkTopBar(navController: NavHostController?) {
                 )
             }
 
+            Spacer(Modifier.height(4.dp))
+
             Text(
                 text = "Artikel Tersimpan",
                 color = Color.White.copy(alpha = 0.9f),
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 20.dp)
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
         }
     }
@@ -209,10 +206,7 @@ private fun BookmarkTopBar(navController: NavHostController?) {
 /* ─── REMINDER CARD ─── */
 
 @Composable
-private fun ReminderCard(
-    unreadCount: Int,
-    onMyArticlesClick: () -> Unit
-) {
+private fun ReminderCard(unreadCount: Int) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -222,9 +216,7 @@ private fun ReminderCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -233,33 +225,21 @@ private fun ReminderCard(
             ) {
                 Icon(
                     imageVector = Icons.Default.Notifications,
-                    contentDescription = "Reminder",
+                    contentDescription = null,
                     tint = BluePrimary,
                     modifier = Modifier.padding(8.dp).size(24.dp)
                 )
             }
-
             Spacer(Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Reminder",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color(0xFF1B3B6B)
-                )
-                Text(
-                    text = "Kamu punya $unreadCount artikel yang belum dibaca",
-                    fontSize = 13.sp,
-                    color = Color(0xFF4A4A4A),
-                    lineHeight = 18.sp
-                )
+            Column {
+                Text("Reminder", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF1B3B6B))
+                Text("Kamu punya $unreadCount artikel yang belum dibaca", fontSize = 13.sp, color = Color(0xFF4A4A4A))
             }
         }
     }
 }
 
-/* ─── PERBAIKAN WARNA TEKS DIALOG ─── */
+/* ─── DIALOGS ─── */
 
 @Composable
 fun ConfirmDeleteDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
@@ -269,42 +249,17 @@ fun ConfirmDeleteDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
             colors = CardDefaults.cardColors(containerColor = Color(0xFF7EA4C9)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Hapus Artikel?",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Hapus Artikel?", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Apakah Anda yakin ingin menghapus artikel ini dari daftar simpan?",
-                    fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.9f),
-                    textAlign = TextAlign.Center
-                )
+                Text("Yakin ingin menghapus artikel dari daftar simpan?", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f), textAlign = TextAlign.Center)
                 Spacer(Modifier.height(24.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = onCancel,
-                        modifier = Modifier.weight(1f),
-                        border = BorderStroke(1.dp, Color.White),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                    ) {
-                        Text("Batal", color = Color.White)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, Color.White), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) {
+                        Text("Batal")
                     }
-                    Button(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF355A84),
-                            contentColor = Color.White // Teks icon/konten otomatis putih
-                        )
-                    ) {
-                        Text("Iya, Hapus", color = Color.White, fontWeight = FontWeight.Bold)
+                    Button(onClick = onConfirm, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF355A84))) {
+                        Text("Iya, Hapus", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -320,33 +275,13 @@ fun DeleteSuccessDialog(onDismiss: () -> Unit) {
             colors = CardDefaults.cardColors(containerColor = Color(0xFF7EA4C9)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
-                )
+            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "Berhasil Dihapus!",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
+                Text("Berhasil Dihapus!", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF355A84),
-                        contentColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("OK", color = Color.White)
+                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF355A84)), modifier = Modifier.fillMaxWidth()) {
+                    Text("OK")
                 }
             }
         }

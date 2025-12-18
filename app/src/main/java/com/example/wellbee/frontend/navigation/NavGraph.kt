@@ -11,26 +11,35 @@ import com.example.wellbee.frontend.screens.RegisterScreen
 import com.example.wellbee.frontend.screens.LoginScreen
 import com.example.wellbee.frontend.screens.ResetPasswordScreen
 import com.example.wellbee.frontend.screens.MainScreen
+import com.example.wellbee.frontend.screens.ProfileScreen
 
 @Composable
 fun NavGraph(navController: NavHostController) {
     val context = LocalContext.current
     val sessionManager = SessionManager(context)
 
-    // Tentukan startDestination secara dinamis
+    // Tentukan startDestination secara dinamis berdasarkan status login
     val startDest = if (sessionManager.isLoggedIn()) "main" else "welcome"
 
     NavHost(
         navController = navController,
         startDestination = startDest
     ) {
-        // 🔹 AUTH SCREENS
+        // --- AUTH SCREENS ---
         composable("welcome") { WelcomeScreen(navController) }
         composable("register") { RegisterScreen(navController) }
         composable("login") { LoginScreen(navController) }
         composable("reset_password") { ResetPasswordScreen(navController) }
 
-        // 🔹 MAIN SCREEN
-        composable("main") { MainScreen(parentNavController = navController) }
+        // --- MAIN SCREEN (Dashboard) ---
+        composable("main") {
+            MainScreen(parentNavController = navController)
+        }
+
+        // --- PROFILE SCREEN ---
+        // Rute ini harus berada di level ini agar bisa diakses oleh parentNavController
+        composable("profile") {
+            ProfileScreen(navController = navController)
+        }
     }
 }
