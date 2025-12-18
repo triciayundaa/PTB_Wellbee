@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+# Block Java Crash Logs
+hs_err_pid*
+replay_pid*
+*.log
