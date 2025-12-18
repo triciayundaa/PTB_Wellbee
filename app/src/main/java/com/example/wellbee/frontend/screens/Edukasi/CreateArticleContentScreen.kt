@@ -1,26 +1,37 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.wellbee.frontend.screens.Edukasi
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
+import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.EducationTopBarWithBack
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
@@ -28,38 +39,55 @@ import com.example.wellbee.ui.theme.GrayBackground
 @Composable
 fun CreateArticleContentScreen(
     navController: NavHostController,
+    viewModel: EducationViewModel,
     category: String,
     readTime: String,
     tag: String,
     articleId: String? = null
 ) {
+    val context = LocalContext.current
+
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
 
     var titleError by remember { mutableStateOf<String?>(null) }
     var contentError by remember { mutableStateOf<String?>(null) }
 
-    // 🔹 URI gambar yang dipilih user (hanya untuk UI & nanti di-pass ke Preview)
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
+    /** ================= IMAGE PICKER ================= */
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedImageUri = uri
+    ) { uri ->
+        if (uri != null) selectedImageUri = uri
     }
 
-    // Prefill kalau edit
-    LaunchedEffect(articleId) {
+    /** ================= LOGIKA LOAD DATA (MODE EDIT) ================= */
+    val myArticles = viewModel.myArticles
+
+    LaunchedEffect(Unit) {
         if (articleId != null) {
-            val article = MyArticleRepository.findById(articleId)
-            if (article != null) {
-                title = article.title
-                content = article.content
-                // kalau kamu sudah simpan URL gambar di MyArticleRepository, bisa decode ke Uri di sini
+            viewModel.loadMyArticles() // Mengambil daftar artikel saya untuk mencari data lama
+        }
+    }
+
+    // Sinkronisasi data lama ke state input agar muncul di layar
+    LaunchedEffect(myArticles) {
+        if (articleId != null) {
+            val idInt = articleId.toIntOrNull()
+            val article = myArticles.find { it.id == idInt }
+            article?.let {
+                // Hanya mengisi jika state masih kosong untuk menghindari override saat user mengetik ulang
+                if (title.isEmpty()) title = it.judul
+                if (content.isEmpty()) content = it.isi
+                if (selectedImageUri == null && !it.gambarUrl.isNullOrEmpty()) {
+                    selectedImageUri = Uri.parse(it.gambarUrl)
+                }
             }
         }
     }
 
+    /** ================= UI ================= */
     Scaffold(
         topBar = {
             EducationTopBarWithBack(
@@ -77,50 +105,41 @@ fun CreateArticleContentScreen(
                 .background(GrayBackground)
                 .verticalScroll(rememberScrollState())
                 .imePadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
 
             Text(
-                text = "Buat Artikel",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                text = if (articleId == null) "Isi Konten Artikel" else "Edit Konten Artikel",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
                 color = BluePrimary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFD9E1F0)
-                ),
-                modifier = Modifier.fillMaxWidth()
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFD9E1F0).copy(alpha = 0.7f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
+                Column(Modifier.padding(20.dp)) {
 
-                    // JUDUL
-                    Text(
-                        text = "Judul Artikel",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        color = BluePrimary
-                    )
-                    Spacer(Modifier.height(6.dp))
+                    /** ================= TITLE ================= */
+                    Text("Judul Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
+                    Spacer(Modifier.height(8.dp))
+
                     TextField(
                         value = title,
                         onValueChange = {
                             title = it
                             titleError = null
                         },
-                        placeholder = { Text("Tips Tidur Nyenyak") },
+                        placeholder = { Text("Contoh: Tips Hidup Sehat", color = Color.Gray) },
                         singleLine = true,
+                        textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
                         shape = RoundedCornerShape(16.dp),
                         colors = TextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
                             focusedIndicatorColor = Color.Transparent,
@@ -128,151 +147,136 @@ fun CreateArticleContentScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (titleError != null) {
-                        Text(
-                            text = titleError!!,
-                            color = Color.Red,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
+
+                    titleError?.let {
+                        Text(it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(20.dp))
 
-                    // LABEL CONTENT
-                    Text(
-                        text = "Content",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        color = BluePrimary
-                    )
-
+                    /** ================= IMAGE PICKER ================= */
+                    Text("Gambar Sampul", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
 
-                    // AREA KAMERA / GAMBAR
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
-                            .background(Color(0xFFB4C3DD), RoundedCornerShape(16.dp)),
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFFB4C3DD))
+                            .clickable { galleryLauncher.launch("image/*") },
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = {
-                                galleryLauncher.launch("image/*")
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = "Tambah foto",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            }
-                            Text(
-                                text = if (selectedImageUri != null)
-                                    "Gambar sudah dipilih"
-                                else
-                                    "Tambah Gambar",
-                                color = Color.White
+                        if (selectedImageUri != null) {
+                            Image(
+                                painter = rememberAsyncImagePainter(selectedImageUri),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
+                            // Overlay ganti gambar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.BottomEnd
+                            ) {
+                                Surface(
+                                    color = Color.Black.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(8.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Ganti Gambar", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(6.dp))
+                                }
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(44.dp)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text("Upload Gambar", color = Color.White, fontWeight = FontWeight.Medium)
+                            }
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(20.dp))
 
-                    // ISI ARTIKEL
+                    /** ================= CONTENT ================= */
+                    Text("Isi Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
+                    Spacer(Modifier.height(8.dp))
+
                     TextField(
                         value = content,
                         onValueChange = {
                             content = it
                             contentError = null
                         },
-                        placeholder = { Text("Tulis konten artikel di sini...") },
-                        minLines = 6,
-                        maxLines = 12,
+                        placeholder = { Text("Tuliskan detail informasi artikel di sini...", color = Color.Gray) },
+                        minLines = 8,
+                        textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
                         shape = RoundedCornerShape(16.dp),
                         colors = TextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent
                         ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 200.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    if (contentError != null) {
-                        Text(
-                            text = contentError!!,
-                            color = Color.Red,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
+
+                    contentError?.let {
+                        Text(it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(32.dp))
 
-            // TOMBOL PREVIEW
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = {
-                        var valid = true
-                        if (title.isBlank()) {
-                            titleError = "Judul tidak boleh kosong"
-                            valid = false
+            /** ================= BUTTON PREVIEW ================= */
+            Button(
+                onClick = {
+                    var valid = true
+                    if (title.isBlank()) { titleError = "Judul tidak boleh kosong"; valid = false }
+                    if (content.isBlank()) { contentError = "Isi artikel tidak boleh kosong"; valid = false }
+
+                    if (valid) {
+                        val baseRoute = "create_article_preview/" +
+                                "${Uri.encode(category)}/" +
+                                "${Uri.encode(readTime)}/" +
+                                "${Uri.encode(tag)}/" +
+                                "${Uri.encode(title)}/" +
+                                "${Uri.encode(content)}"
+
+                        val imageArg = Uri.encode(selectedImageUri?.toString() ?: "")
+                        val fullRoute = if (articleId != null) {
+                            "$baseRoute?imageUri=$imageArg&articleId=${Uri.encode(articleId)}"
+                        } else {
+                            "$baseRoute?imageUri=$imageArg"
                         }
-                        if (content.isBlank()) {
-                            contentError = "Isi artikel tidak boleh kosong"
-                            valid = false
-                        }
-
-                        if (valid) {
-                            val catArg = Uri.encode(category)
-                            val readArg = Uri.encode(readTime)
-                            val tagArg = Uri.encode(tag)
-                            val titleArg = Uri.encode(title)
-                            val contentArg = Uri.encode(content)
-
-                            // 🔹 encode URI gambar (boleh kosong kalau belum pilih)
-                            val imageArg = Uri.encode(
-                                selectedImageUri?.toString() ?: ""
-                            )
-
-                            val baseRoute =
-                                "create_article_preview/$catArg/$readArg/$tagArg/$titleArg/$contentArg" +
-                                        "?imageUri=$imageArg"
-
-                            val fullRoute = if (articleId != null) {
-                                baseRoute + "&articleId=" + Uri.encode(articleId)
-                            } else {
-                                baseRoute
-                            }
-
-                            navController.navigate(fullRoute)
-                        }
+                        navController.navigate(fullRoute)
                     }
-                ) {
-                    Text("Preview", color = BluePrimary, fontWeight = FontWeight.SemiBold)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BluePrimary,
+                    contentColor = Color.White
+                )
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Lihat Preview", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun CreateArticleContentScreenPreview() {
-    val nav = rememberNavController()
-    CreateArticleContentScreen(
-        navController = nav,
-        category = "Kesehatan Fisik",
-        readTime = "5 menit",
-        tag = "Produktif"
-    )
 }

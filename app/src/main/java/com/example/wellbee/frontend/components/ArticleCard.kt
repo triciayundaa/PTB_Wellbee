@@ -25,22 +25,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.wellbee.frontend.screens.Edukasi.BookmarkManager
 import com.example.wellbee.ui.theme.BluePrimary
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ArticleCard(
-    articleId: String,          // 🔹 ID artikel → dipakai untuk bookmark
-    imageUrl: String?,          // 🔹 URL gambar dari backend (sudah full)
+    articleId: String,          // masih ikut dikirim, walau di sini tidak dipakai
+    imageUrl: String?,          // URL gambar dari backend (sudah full)
     categories: List<String>,
     title: String,
     readTime: String,
-    onReadMoreClick: () -> Unit
+    isBookmarked: Boolean,      // 🔹 status bookmark dikirim dari luar (ViewModel)
+    onBookmarkClick: () -> Unit,// 🔹 aksi saat icon bookmark diklik
+    onReadMoreClick: () -> Unit // 🔹 aksi saat tombol "Baca Selengkapnya" diklik
 ) {
-    // status bookmark selalu diambil dari BookmarkManager
-    val isBookmarked = BookmarkManager.isBookmarked(articleId)
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -59,7 +57,7 @@ fun ArticleCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (!imageUrl.isNullOrBlank()) {
-                    // Debug kecil ke Logcat (bisa kamu hapus nanti)
+                    // Debug kecil ke Logcat (boleh dihapus nanti)
                     println("ArticleCard imageUrl = $imageUrl")
 
                     AsyncImage(
@@ -131,10 +129,7 @@ fun ArticleCard(
                         color = Color.Gray
                     )
                     IconButton(
-                        onClick = {
-                            // toggle global bookmark
-                            BookmarkManager.toggleBookmark(articleId)
-                        }
+                        onClick = onBookmarkClick   // 🔹 serahkan ke caller
                     ) {
                         Icon(
                             imageVector = if (isBookmarked)

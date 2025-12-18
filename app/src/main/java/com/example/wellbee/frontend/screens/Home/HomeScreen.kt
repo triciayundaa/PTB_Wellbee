@@ -17,28 +17,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.wellbee.data.model.EducationViewModel
+import com.example.wellbee.data.model.PublicArticleDto
 import com.example.wellbee.frontend.components.ArticleCard
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GreenAccent
 import com.example.wellbee.ui.theme.GrayBackground
 import com.example.wellbee.ui.theme.WellbeeTheme
-import com.example.wellbee.data.model.EducationViewModel
-import com.example.wellbee.data.model.PublicArticleDto
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun HomeScreen(navController: NavHostController) {
 
     val context = LocalContext.current
-    // Pakai ViewModel yang sama dengan EducationScreen
+    // Pakai ViewModel yang sama tipe-nya dengan EducationScreen
     val viewModel = remember { EducationViewModel(context) }
 
     val articles: List<PublicArticleDto> = viewModel.articles
     val isLoading = viewModel.isLoading
     val errorMessage = viewModel.errorMessage
 
-    // Muat artikel saat pertama kali masuk Home
+    // 🔹 bookmark dari backend
+    val bookmarks = viewModel.bookmarks
+
+    // Muat artikel & bookmark saat pertama kali masuk Home
     LaunchedEffect(Unit) {
         viewModel.loadArticles()
+        viewModel.loadBookmarks()
     }
 
     Column(
@@ -63,7 +70,7 @@ fun HomeScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Statistik langkah & BMI
+        // Statistik langkah & BMI (dummy sementara)
         Row(
             Modifier
                 .fillMaxWidth()
@@ -95,7 +102,7 @@ fun HomeScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Tidur
+        // Tidur (dummy juga)
         Card(
             Modifier
                 .fillMaxWidth()
@@ -144,13 +151,18 @@ fun HomeScreen(navController: NavHostController) {
             }
 
             else -> {
+                // 🔹 Urutkan artikel: terbaru (tanggal paling besar) di paling atas
+                val sortedArticles = remember(articles) {
+                    articles.sortedByDescending { parseBackendDateToMillis(it.tanggal) }
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Tampilkan misalnya 5 artikel terbaru saja
-                    items(articles.take(5)) { article ->
+                    // Tampilkan misalnya 3 artikel terbaru saja
+                    items(sortedArticles.take(3)) { article ->
 
                         // Parsing tag seperti di EducationScreen
                         val artikelTags = article.tag
@@ -159,6 +171,12 @@ fun HomeScreen(navController: NavHostController) {
                             ?.filter { it.isNotEmpty() }
                             ?: emptyList()
 
+                        // 🔹 Cek apakah artikel ini sudah di-bookmark (backend)
+                        val existingBookmark = bookmarks.find { b ->
+                            b.artikelId == article.id && b.jenis == article.jenis
+                        }
+                        val isBookmarked = existingBookmark != null
+
                         ArticleCard(
                             articleId = article.id.toString(),
                             imageUrl = article.gambarUrl,           // URL sudah diproses di repository
@@ -166,7 +184,18 @@ fun HomeScreen(navController: NavHostController) {
                             title = article.judul,
                             readTime = article.waktuBaca ?: "-",
                             onReadMoreClick = {
-                                navController.navigate("article_detail/${article.id}")
+                                // ⬇️ PENTING: kirim source=public supaya cocok dengan route di EducationNavGraph
+                                navController.navigate("article_detail/${article.id}?source=public")
+                            },
+                            isBookmarked = isBookmarked,
+                            onBookmarkClick = {
+                                if (existingBookmark == null) {
+                                    // belum dibookmark → tambah ke backend
+                                    viewModel.addBookmark(article.id, article.jenis)
+                                } else {
+                                    // sudah dibookmark → hapus bookmark di backend
+                                    viewModel.deleteBookmark(existingBookmark.bookmarkId)
+                                }
                             }
                         )
                     }
@@ -174,6 +203,31 @@ fun HomeScreen(navController: NavHostController) {
             }
         }
     }
+}
+
+/**
+ * Helper yang sama seperti di EducationScreen.
+ * Biar urutan artikel konsisten (terbaru di atas) di Home juga.
+ */
+private fun parseBackendDateToMillis(raw: String?): Long {
+    if (raw.isNullOrBlank()) return 0L
+
+    val patterns = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+        "yyyy-MM-dd"
+    )
+
+    for (pattern in patterns) {
+        try {
+            val sdf = SimpleDateFormat(pattern, Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val date = sdf.parse(raw)
+            if (date != null) return date.time
+        } catch (_: Exception) {
+        }
+    }
+    return raw.hashCode().toLong()
 }
 
 @Preview(showBackground = true, showSystemUi = true)

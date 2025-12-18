@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.wellbee.frontend.screens.Edukasi
 
 import android.net.Uri
@@ -5,35 +7,33 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.EducationTopBarWithBack
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateArticleMetaScreen(
     navController: NavHostController,
-    articleId: String? = null    // null = buat baru, ada value = edit
+    viewModel: EducationViewModel, // Menggunakan Shared ViewModel dari NavGraph
+    articleId: String? = null
 ) {
-    val context = LocalContext.current
-    val viewModel = remember { EducationViewModel(context) }
-
     var category by remember { mutableStateOf("") }
     var readTime by remember { mutableStateOf("") }
     var tag by remember { mutableStateOf("") }
@@ -42,39 +42,35 @@ fun CreateArticleMetaScreen(
     var readTimeError by remember { mutableStateOf<String?>(null) }
     var tagError by remember { mutableStateOf<String?>(null) }
 
-    // 🔹 Ambil kategori dari backend saat pertama kali masuk screen
+    var expanded by remember { mutableStateOf(false) }
+
+    // List kategori dari ViewModel, dengan fallback jika kosong
+    val categoryOptions = if (viewModel.categories.isNotEmpty()) viewModel.categories else listOf(
+        "Kesehatan Mental", "Kesehatan Fisik", "Tips Sehat", "Nutrisi", "Produktivitas"
+    )
+
+    // ===== LOGIKA LOAD DATA LAMA (MODE EDIT) =====
+    val myArticles = viewModel.myArticles
+
     LaunchedEffect(Unit) {
         viewModel.loadCategories()
-    }
-
-    // 🔹 Prefill kalau edit
-    LaunchedEffect(articleId) {
         if (articleId != null) {
-            val article = MyArticleRepository.findById(articleId)
-            if (article != null) {
-                category = article.category
-                readTime = article.readTime
-                tag = article.tag
-            }
+            viewModel.loadMyArticles()
         }
     }
 
-    // 🔹 List kategori: kalau backend kosong, pakai fallback lokal
-    val backendCategories = viewModel.categories
-    val categoryOptions = if (backendCategories.isNotEmpty()) {
-        backendCategories
-    } else {
-        listOf(
-            "Kesehatan Mental",
-            "Kesehatan Fisik",
-            "Tips Sehat",
-            "Nutrisi",
-            "Keseimbangan Hidup",
-            "Produktivitas"
-        )
+    // Mengisi state input saat data artikel ditemukan untuk diedit
+    LaunchedEffect(myArticles) {
+        if (articleId != null) {
+            val idInt = articleId.toIntOrNull()
+            val article = myArticles.find { it.id == idInt }
+            article?.let {
+                category = it.kategori ?: ""
+                tag = it.tag ?: ""
+                readTime = it.waktuBaca?.replace(Regex("[^0-9]"), "") ?: ""
+            }
+        }
     }
-
-    var categoryDropdownExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -85,63 +81,47 @@ fun CreateArticleMetaScreen(
         },
         containerColor = GrayBackground
     ) { padding ->
-
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
                 .background(GrayBackground)
                 .verticalScroll(rememberScrollState())
-                .imePadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(16.dp)
         ) {
-
             Text(
-                text = if (articleId == null) "Buat Artikel" else "Edit Artikel",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                text = if (articleId == null) "Informasi Artikel" else "Edit Informasi Artikel",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
                 color = BluePrimary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFD9E1F0)
-                ),
-                modifier = Modifier.fillMaxWidth()
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFD9E1F0).copy(alpha = 0.7f))
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
-                ) {
-                    // ================== KATEGORI ARTIKEL (DROPDOWN) ==================
-                    Text(
-                        text = "Kategori Artikel",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
-                    Spacer(Modifier.height(6.dp))
+                Column(Modifier.padding(20.dp)) {
+
+                    /** ================= KATEGORI (DROPDOWN) ================= **/
+                    Text("Kategori Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
+                    Spacer(Modifier.height(8.dp))
 
                     ExposedDropdownMenuBox(
-                        expanded = categoryDropdownExpanded,
-                        onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded }
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
                     ) {
                         TextField(
                             value = category,
-                            onValueChange = { /* readOnly, jadi kosongkan */ },
+                            onValueChange = {},
                             readOnly = true,
-                            placeholder = { Text("Pilih kategori") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(
-                                    expanded = categoryDropdownExpanded
-                                )
-                            },
+                            placeholder = { Text("Pilih kategori", color = Color.Gray) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
                             shape = RoundedCornerShape(16.dp),
                             colors = TextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedContainerColor = Color.White,
                                 unfocusedContainerColor = Color.White,
                                 focusedIndicatorColor = Color.Transparent,
@@ -153,50 +133,47 @@ fun CreateArticleMetaScreen(
                         )
 
                         ExposedDropdownMenu(
-                            expanded = categoryDropdownExpanded,
-                            onDismissRequest = { categoryDropdownExpanded = false }
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.background(Color.White)
                         ) {
                             categoryOptions.forEach { option ->
                                 DropdownMenuItem(
-                                    text = { Text(option) },
+                                    text = { Text(text = option, color = Color.Black) },
                                     onClick = {
                                         category = option
+                                        expanded = false
                                         categoryError = null
-                                        categoryDropdownExpanded = false
                                     }
                                 )
                             }
                         }
                     }
-
-                    if (categoryError != null) {
-                        Text(
-                            text = categoryError!!,
-                            color = Color.Red,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
+                    categoryError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
 
                     Spacer(Modifier.height(16.dp))
 
-                    // ================== ESTIMASI WAKTU BACA ==================
-                    Text(
-                        text = "Estimasi waktu baca",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
-                    Spacer(Modifier.height(6.dp))
+                    /** ================= READ TIME (HANYA ANGKA) ================= **/
+                    Text("Estimasi Waktu Baca", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
+                    Spacer(Modifier.height(8.dp))
                     TextField(
                         value = readTime,
-                        onValueChange = {
-                            readTime = it
+                        onValueChange = { input ->
+                            val digitsOnly = input.filter { it.isDigit() }
+                            readTime = digitsOnly
                             readTimeError = null
                         },
+                        placeholder = { Text("0", color = Color.Gray) },
+                        suffix = {
+                            Text("menit", color = Color.Gray, fontSize = 14.sp)
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        placeholder = { Text("5 menit") },
+                        textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
                         shape = RoundedCornerShape(16.dp),
                         colors = TextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
                             focusedIndicatorColor = Color.Transparent,
@@ -204,34 +181,23 @@ fun CreateArticleMetaScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (readTimeError != null) {
-                        Text(
-                            text = readTimeError!!,
-                            color = Color.Red,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
+                    readTimeError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
 
                     Spacer(Modifier.height(16.dp))
 
-                    // ================== TAGAR ==================
-                    Text(
-                        text = "Tagar",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
-                    Spacer(Modifier.height(6.dp))
+                    /** ================= TAG ================= **/
+                    Text("Tag Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
+                    Spacer(Modifier.height(8.dp))
                     TextField(
                         value = tag,
-                        onValueChange = {
-                            tag = it
-                            tagError = null
-                        },
+                        onValueChange = { tag = it; tagError = null },
+                        placeholder = { Text("Contoh: Nutrisi", color = Color.Gray) },
                         singleLine = true,
-                        placeholder = { Text("Produktif") },
+                        textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
                         shape = RoundedCornerShape(16.dp),
                         colors = TextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
                             focusedIndicatorColor = Color.Transparent,
@@ -239,98 +205,46 @@ fun CreateArticleMetaScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (tagError != null) {
-                        Text(
-                            text = tagError!!,
-                            color = Color.Red,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // CHIP TAGAR DI BAWAH
-                    if (tag.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = Color(0xFFB2C3E0),
-                            modifier = Modifier.align(Alignment.Start)
-                        ) {
-                            Text(
-                                text = tag,
-                                modifier = Modifier.padding(
-                                    horizontal = 24.dp,
-                                    vertical = 8.dp
-                                ),
-                                color = Color(0xFF21436B),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
+                    tagError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(32.dp))
 
-            // ================== TOMBOL LANJUTKAN ==================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = {
-                        var valid = true
-                        if (category.isBlank()) {
-                            categoryError = "Kategori harus diisi"
-                            valid = false
+            /** ================= BUTTON LANJUTKAN ================= **/
+            Button(
+                onClick = {
+                    var valid = true
+                    if (category.isBlank()) { categoryError = "Kategori harus diisi"; valid = false }
+                    if (readTime.isBlank()) { readTimeError = "Waktu baca harus diisi"; valid = false }
+                    if (tag.isBlank()) { tagError = "Tag harus diisi"; valid = false }
+
+                    if (valid) {
+                        val catArg = Uri.encode(category.trim())
+                        val readArg = Uri.encode("${readTime.trim()} menit")
+                        val tagArg = Uri.encode(tag.trim())
+
+                        val baseRoute = "create_article_content/$catArg/$readArg/$tagArg"
+                        val fullRoute = if (articleId != null) {
+                            "$baseRoute?articleId=${Uri.encode(articleId)}"
+                        } else {
+                            baseRoute
                         }
-                        if (readTime.isBlank()) {
-                            readTimeError = "Estimasi waktu baca harus diisi"
-                            valid = false
-                        }
-                        if (tag.isBlank()) {
-                            tagError = "Tagar harus diisi"
-                            valid = false
-                        }
-
-                        if (valid) {
-                            val catArg = Uri.encode(category.trim())
-                            val readArg = Uri.encode(readTime.trim())
-                            val tagArg = Uri.encode(tag.trim())
-
-                            val baseRoute =
-                                "create_article_content/$catArg/$readArg/$tagArg"
-
-                            val fullRoute = if (articleId != null) {
-                                baseRoute + "?articleId=" + Uri.encode(articleId)
-                            } else {
-                                baseRoute
-                            }
-
-                            navController.navigate(fullRoute)
-                        }
+                        navController.navigate(fullRoute)
                     }
-                ) {
-                    Text("Lanjutkan", color = BluePrimary)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        Icons.Default.ArrowForwardIos,
-                        contentDescription = "Lanjutkan",
-                        tint = BluePrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Lanjutkan", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White)
                 }
             }
         }
     }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun CreateArticleMetaScreenPreview() {
-    val nav = rememberNavController()
-    CreateArticleMetaScreen(navController = nav)
 }

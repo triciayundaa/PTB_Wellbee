@@ -2,28 +2,37 @@ package com.example.wellbee.frontend.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.BottomNavigationBar
 import com.example.wellbee.frontend.navigation.EducationNavGraph
 import com.example.wellbee.frontend.navigation.MentalNavGraph
 import com.example.wellbee.frontend.screens.Edukasi.ArticleDetailScreen
-import com.example.wellbee.frontend.screens.Edukasi.EducationArticles
-import com.example.wellbee.frontend.screens.Edukasi.MyArticleRepository
 import com.example.wellbee.frontend.screens.Fisik.PhysicalHealthScreen
 import com.example.wellbee.frontend.screens.Home.HomeScreen
+import com.example.wellbee.ui.theme.BluePrimary
 
 @SuppressLint("ComposableDestinationInComposeScope")
 @Composable
 fun MainScreen(parentNavController: NavHostController) {
 
-    // nav controller untuk bottom navigation
+    // NavController untuk bottom navigation
     val bottomNavController = rememberNavController()
 
     Scaffold(
@@ -36,75 +45,105 @@ fun MainScreen(parentNavController: NavHostController) {
                 startDestination = "home"
             ) {
 
+                // ============================
                 // HOME
+                // ============================
                 composable("home") {
                     HomeScreen(navController = bottomNavController)
                 }
 
-                // EDUCATION - pakai NavGraph dari Trici
+                // ============================
+                // EDUCATION (sub-nav)
+                // ============================
                 composable("education") {
                     EducationNavGraph()
                 }
 
-                // MENTAL - pakai NavGraph dari Nailah
+                // ============================
+                // MENTAL
+                // ============================
                 composable("mental") {
                     MentalNavGraph(parentNavController = bottomNavController)
                 }
 
+                // ============================
                 // PHYSICAL
+                // ============================
                 composable("physical") {
                     PhysicalHealthScreen(parentNavController = bottomNavController)
                 }
 
-
-                // ================
-                // ARTICLE DETAIL
-                // ================
+                // ============================
+                // ARTICLE DETAIL (BACKEND)
+                // Dipakai dari HomeScreen → navController.navigate("article_detail/${article.id}")
+                // ============================
                 composable(
-                    route = "article_detail/{articleId}"
+                    route = "article_detail/{articleId}",
+                    arguments = listOf(
+                        navArgument("articleId") { type = NavType.StringType }
+                    )
                 ) { backStackEntry ->
-                    val articleId = backStackEntry.arguments?.getString("articleId")
+                    val articleIdStr = backStackEntry.arguments?.getString("articleId")
+                    val articleIdInt = articleIdStr?.toIntOrNull()
 
-                    // artikel bawaan
-                    val articleStatic = EducationArticles.articles.find { it.id == articleId }
+                    val context = LocalContext.current
+                    val viewModel = remember { EducationViewModel(context) }
 
-                    // artikel user
-                    val articleUser = articleId?.let { MyArticleRepository.findById(it) }
+                    // setiap kali buka detail → refresh artikel publik dari backend
+                    LaunchedEffect(articleIdStr) {
+                        viewModel.loadArticles()
+                    }
+
+                    val articles = viewModel.articles
+                    val isLoading = viewModel.isLoading
+
+                    val article = if (articleIdInt != null) {
+                        articles.find { it.id == articleIdInt }
+                    } else null
 
                     when {
-                        articleStatic != null -> {
+                        // ✅ Artikel ditemukan → tampilkan detail lengkap
+                        article != null -> {
                             ArticleDetailScreen(
                                 navController = bottomNavController,
-                                articleId = articleStatic.id,
-                                title = articleStatic.title,
-                                category = articleStatic.categories.firstOrNull() ?: "Umum",
-                                readTime = articleStatic.readTime,
-                                imageRes = articleStatic.imageRes,
-                                content = articleStatic.content
-                            )
-                        }
-
-                        articleUser != null -> {
-                            ArticleDetailScreen(
-                                navController = bottomNavController,
-                                articleId = articleUser.id,
-                                title = articleUser.title,
-                                category = articleUser.category,
-                                readTime = articleUser.readTime,
+                                articleId = article.id.toString(),
+                                title = article.judul,
+                                category = article.kategori ?: "Umum",
+                                readTime = article.waktuBaca ?: "-",
                                 imageRes = null,
-                                content = articleUser.content
+                                imageUrl = article.gambarUrl,
+                                content = article.isi,
+                                isUserArticle = article.jenis == "user",
+                                // ⬇️ nama penulis asli dari backend (JOIN ke tabel users.username)
+                                authorName = article.authorName,
+                                uploadedDate = article.tanggal
                             )
                         }
 
+                        // ⏳ Masih loading dari backend
+                        isLoading -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = BluePrimary)
+                            }
+                        }
+
+                        // ❌ Tidak ketemu artikel
                         else -> {
                             ArticleDetailScreen(
                                 navController = bottomNavController,
-                                articleId = articleId ?: "",
+                                articleId = articleIdStr ?: "",
                                 title = "Artikel tidak ditemukan",
                                 category = "Umum",
                                 readTime = "-",
                                 imageRes = null,
-                                content = "Maaf, artikel yang Anda pilih tidak tersedia."
+                                imageUrl = null,
+                                content = "Maaf, artikel yang Anda pilih tidak tersedia.",
+                                isUserArticle = false,
+                                authorName = null,
+                                uploadedDate = null
                             )
                         }
                     }

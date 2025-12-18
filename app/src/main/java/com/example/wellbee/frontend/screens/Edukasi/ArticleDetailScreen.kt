@@ -8,14 +8,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -25,104 +23,82 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.wellbee.R
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun ArticleDetailScreen(
     navController: NavHostController,
-    articleId: String,          // 🔹 dipakai untuk bookmark & markAsRead
+    articleId: String,
     title: String,
     category: String,
     readTime: String,
-    imageRes: Int? = null,
+    imageRes: Int? = null,      // fallback drawable lokal
+    imageUrl: String? = null,   // URL gambar dari backend
     content: String,
-    // 🔽 tambahan untuk info penulis & tanggal
     isUserArticle: Boolean = false,
     authorName: String? = null,
     uploadedDate: String? = null
 ) {
-    // baca status bookmark dari BookmarkManager
-    val isBookmarked = BookmarkManager.isBookmarked(articleId)
-    var showDownloadSuccess by remember { mutableStateOf(false) }
 
-    // 🔹 Tandai artikel ini sebagai "sudah dibaca" saat screen dibuka
-    LaunchedEffect(articleId) {
-        BookmarkManager.markAsRead(articleId)
-    }
-
-    // 🔹 Tentukan label penulis
+    // Label penulis
     val penulisLabel: String? = when {
-        isUserArticle -> "Kamu"
         !authorName.isNullOrBlank() -> authorName
+        isUserArticle -> "Kamu"
         else -> null
     }
 
-    // 🔹 Tentukan teks tanggal (kalau null, pakai default seperti sebelumnya)
-    val tanggalText: String = uploadedDate ?: "19 Oktober 2025"
+    // Format tanggal
+    val tanggalText: String = remember(uploadedDate) {
+        formatDateOnly(uploadedDate)
+    }
 
     Scaffold(
-        containerColor = GrayBackground,
+        containerColor = Color.White, // Menggunakan putih agar konten teks lebih bersih
         topBar = {
-            // HEADER BIRU
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(BluePrimary)
-                    .statusBarsPadding()
-            ) {
-                Row(
+            Surface(shadowElevation = 4.dp) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .background(BluePrimary)
+                        .statusBarsPadding()
                 ) {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Kembali",
-                            tint = Color.White
-                        )
-                    }
-
-                    Spacer(Modifier.width(8.dp))
-
-                    Text(
-                        text = "Education",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Start
-                    )
-
-                    IconButton(
-                        onClick = { BookmarkManager.toggleBookmark(articleId) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (isBookmarked)
-                                Icons.Default.Bookmark
-                            else
-                                Icons.Default.BookmarkBorder,
-                            contentDescription = "Bookmark",
-                            tint = Color.White
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Kembali",
+                                tint = Color.White
+                            )
+                        }
+                        Text(
+                            text = "Education",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
+                    Text(
+                        text = "Artikel Detail",
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 20.dp, bottom = 16.dp)
+                    )
                 }
-
-                Text(
-                    text = "Artikel Detail",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, bottom = 12.dp)
-                )
             }
         }
     ) { padding ->
@@ -131,203 +107,151 @@ fun ArticleDetailScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color.White)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-
-            // CARD ATAS: gambar + header artikel + tombol download
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F9FC)),
-                modifier = Modifier.fillMaxWidth()
+            // 1. Gambar Utama (Full Width tanpa Card yang membungkus teks)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                val painter = when {
+                    !imageUrl.isNullOrBlank() -> rememberAsyncImagePainter(model = imageUrl)
+                    imageRes != null -> painterResource(id = imageRes)
+                    else -> painterResource(id = R.drawable.ic_launcher_foreground)
+                }
 
-                    // Gambar artikel
-                    if (imageRes != null) {
-                        Image(
-                            painter = painterResource(id = imageRes),
-                            contentDescription = "Gambar Artikel",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentScale = ContentScale.Crop
-                        )
-                        Spacer(Modifier.height(16.dp))
-                    }
+                Image(
+                    painter = painter,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
 
-                    // Judul + tombol download
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
+            // 2. Konten Artikel
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+            ) {
+                // Kategori Chip
+                Surface(
+                    color = BluePrimary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = category.uppercase(),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BluePrimary
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Judul Besar
+                Text(
+                    text = title,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF1A1A1A),
+                    lineHeight = 32.sp
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Metadata (Penulis & Tanggal)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Info Penulis & Tanggal
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = title,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = BluePrimary,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        IconButton(
-                            onClick = {
-                                showDownloadSuccess = true
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = "Download Artikel",
-                                tint = BluePrimary
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Info meta artikel (kategori • waktu baca + tanggal)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "$category • $readTime",
-                            fontSize = 13.sp,
-                            color = Color.Gray
+                            text = if (penulisLabel != null) "Oleh $penulisLabel" else "Oleh Wellbee Team",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1A1A1A)
                         )
                         Text(
                             text = tanggalText,
                             fontSize = 12.sp,
-                            color = BluePrimary
+                            color = Color.Gray
                         )
                     }
 
-                    // 🔹 Baris "Penulis" (hanya kalau ada label)
-                    if (penulisLabel != null) {
-                        Spacer(Modifier.height(6.dp))
+                    // Info Waktu Baca
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = Color.Gray
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "Penulis: $penulisLabel",
+                            text = readTime,
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
                     }
                 }
-            }
-
-            Spacer(Modifier.height(18.dp))
-
-            // Subjudul / judul section konten
-            Text(
-                text = title,
-                style = TextStyle(
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1A1A1A),
-                    lineHeight = 24.sp
-                )
-            )
-
-            Spacer(Modifier.height(6.dp))
-
-            // ISI ARTIKEL
-            Text(
-                text = content,
-                color = Color(0xFF333333),
-                fontSize = 14.sp,
-                lineHeight = 22.sp
-            )
-
-            Spacer(Modifier.height(32.dp))
-        }
-
-        // POPUP DOWNLOAD BERHASIL
-        if (showDownloadSuccess) {
-            DownloadSuccessDialog(
-                onDismiss = { showDownloadSuccess = false }
-            )
-        }
-    }
-}
-
-/* ───────────────────────────── DIALOG DOWNLOAD BERHASIL ─────────────────── */
-
-@Composable
-private fun DownloadSuccessDialog(
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF7EA4C9) // biru muda seperti desain
-            ),
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = Color(0xFF21436B),
-                    modifier = Modifier.size(64.dp)
-                )
 
                 Spacer(Modifier.height(20.dp))
+                HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+                Spacer(Modifier.height(20.dp))
 
+                // Isi Artikel (Body)
                 Text(
-                    text = "Artikel Berhasil Didownload!",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    textAlign = TextAlign.Center
+                    text = content,
+                    fontSize = 16.sp,
+                    lineHeight = 26.sp,
+                    color = Color(0xFF333333),
+                    textAlign = TextAlign.Justify
                 )
 
-                Spacer(Modifier.height(24.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF355A84)
-                    ),
-                    shape = RoundedCornerShape(999.dp)
-                ) {
-                    Text("OK", color = Color.White)
-                }
+                Spacer(Modifier.height(40.dp))
             }
         }
     }
 }
 
-/* ───────────────────────────── PREVIEW ──────────────────────────────────── */
+/* ─────────────────────── FORMAT TANGGAL ─────────────────────── */
+
+private fun formatDateOnly(raw: String?): String {
+    if (raw.isNullOrBlank()) return ""
+
+    return try {
+        val inputFormat =
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+
+        val date = inputFormat.parse(raw)
+        val outFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+
+        if (date != null) outFormat.format(date) else raw.take(10)
+    } catch (e: Exception) {
+        raw.take(10)
+    }
+}
+
+/* ─────────────────────── PREVIEW ─────────────────────── */
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ArticleDetailScreenPreview() {
-    val nav = rememberNavController()
     ArticleDetailScreen(
-        navController = nav,
+        navController = rememberNavController(),
         articleId = "1",
-        title = "Tips Tidur Nyenyak dan Nyaman",
-        category = "Kesehatan Fisik",
-        readTime = "5 menit",
+        title = "makanan dengan nutrisi seimbang",
+        category = "Nutrisi",
+        readTime = "6 menit",
         imageRes = R.drawable.ic_launcher_foreground,
-        content = """
-            Pernahkah Anda bertanya-tanya bagaimana cara mendapatkan tidur berkualitas yang benar-benar menyegarkan?
-
-            Tidur bukan sekadar istirahat, melainkan fondasi penting bagi kesehatan fisik dan mental kita secara menyeluruh.
-            Kualitas tidur yang baik meningkatkan konsentrasi, produktivitas, suasana hati, hingga daya ingat sepanjang hari.
-
-            Kurang tidur secara kronis dapat menimbulkan berbagai masalah serius. 
-            Oleh karena itu, memahami dan menerapkan kebiasaan tidur yang sehat sangatlah krusial.
-        """.trimIndent(),
-        isUserArticle = true,
-        authorName = "Kamu",
-        uploadedDate = "19 Oktober 2025"
+        content = "Makanan dengan nutrisi seimbang adalah makanan yang mengandung karbohidrat, protein, lemak, vitamin, dan mineral dalam jumlah yang sesuai dengan kebutuhan tubuh. Mengonsumsi makanan bergizi sangat penting untuk menjaga kesehatan jangka panjang...\n\nbdjdkfhfkfk",
+        isUserArticle = false,
+        authorName = "trici",
+        uploadedDate = "2025-12-18T00:00:00.000Z"
     )
 }

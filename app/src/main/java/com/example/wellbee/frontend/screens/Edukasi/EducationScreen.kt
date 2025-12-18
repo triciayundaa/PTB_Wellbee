@@ -21,64 +21,61 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.wellbee.data.model.EducationViewModel
+import com.example.wellbee.data.model.PublicArticleDto
 import com.example.wellbee.frontend.components.ArticleCard
 import com.example.wellbee.frontend.components.SearchBar
 import com.example.wellbee.frontend.components.TagChip
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
-import com.example.wellbee.data.model.EducationViewModel
-import com.example.wellbee.data.model.PublicArticleDto
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
-fun EducationScreen(navController: NavHostController) {
+fun EducationScreen(navController: NavHostController, viewModel: EducationViewModel) {
     val context = LocalContext.current
-
-    // ViewModel sederhana (tanpa Hilt dulu)
-    val viewModel = remember { EducationViewModel(context) }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Semua") }
 
+    // Load data awal
+    LaunchedEffect(Unit) {
+        viewModel.loadCategories()
+        viewModel.loadBookmarks()
+        viewModel.loadArticles()
+    }
+
     val articles: List<PublicArticleDto> = viewModel.articles
     val isLoading = viewModel.isLoading
     val errorMessage = viewModel.errorMessage
-
-    // ✅ kategori dari backend
     val backendCategories = viewModel.categories
-    val categories = remember(backendCategories) {
-        // tambahkan "Semua" di depan
-        listOf("Semua") + backendCategories
-    }
+    val categories = remember(backendCategories) { listOf("Semua") + backendCategories }
+    val bookmarks = viewModel.bookmarks
 
-    // Panggil API saat pertama kali masuk screen
-    LaunchedEffect(Unit) {
-        viewModel.loadArticles()
-        viewModel.loadCategories()
-    }
-
-    // ==================== FILTERING (berbasis kategori & judul) ====================
-
-    val filteredArticles = articles.filter { article ->
-        val matchCategory =
+    // Filter berdasarkan kategori
+    val filteredByCategory = remember(articles, selectedCategory) {
+        articles.filter { article ->
             selectedCategory == "Semua" ||
-                    (article.kategori != null &&
-                            article.kategori.equals(selectedCategory, ignoreCase = true))
-
-        val matchSearch =
-            searchQuery.isBlank() ||
-                    article.judul.contains(searchQuery, ignoreCase = true)
-
-        matchCategory && matchSearch
+                    (article.kategori != null && article.kategori.equals(selectedCategory, ignoreCase = true))
+        }
     }
 
-    // ==================== UI ====================
+    // Filter berdasarkan searchQuery + sort terbaru
+    val filteredArticlesSorted = remember(filteredByCategory, searchQuery) {
+        filteredByCategory
+            .filter { article ->
+                searchQuery.isBlank() || article.judul.contains(searchQuery, ignoreCase = true)
+            }
+            .sortedByDescending { parseBackendDateToMillis(it.tanggal) }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(GrayBackground)
     ) {
-        // HEADER BIRU
+        // HEADER
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -87,30 +84,43 @@ fun EducationScreen(navController: NavHostController) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Edukasi",
+                text = "Education",
                 color = Color.White,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(Modifier.height(16.dp))
+        if (isLoading) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = BluePrimary
+            )
+        } else Spacer(Modifier.height(4.dp))
 
-        // 🔍 SEARCH BAR
-        SearchBar(
+        // SEARCH BAR
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            onSearch = { searchQuery = it }
-        )
+                .padding(horizontal = 16.dp)
+        ) {
+            SearchBar(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(12.dp))
+                    .padding(4.dp),
+                onSearch = { query -> searchQuery = query }
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 
-        // 🏷️ KATEGORI (dari backend)
+        // KATEGORI
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(categories) { category ->
                 TagChip(
@@ -123,131 +133,162 @@ fun EducationScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // ⭐ ARTIKEL TERSIMPAN (Bookmark)
-        Row(
+        // MAIN CONTENT
+        LazyColumn(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            Text("Artikel Tersimpan", fontWeight = FontWeight.Bold)
-            TextButton(onClick = {
-                navController.navigate("bookmark")
-            }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Lihat Semua", color = BluePrimary)
-                    Icon(
-                        Icons.Default.ArrowForwardIos,
-                        contentDescription = null,
-                        tint = BluePrimary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-        }
 
-        // ✍️ BUAT ARTIKEL
-        OutlinedButton(
-            onClick = {
-                navController.navigate("create_article_meta")
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = BluePrimary.copy(alpha = 0.08f)
-            )
-        ) {
-            Icon(Icons.Default.BookmarkAdd, contentDescription = null, tint = BluePrimary)
-            Spacer(Modifier.width(8.dp))
-            Text("Buat Artikel", color = BluePrimary, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.weight(1f))
-            Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = BluePrimary)
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // 📰 ARTIKEL TERBARU + ARTIKEL SAYA
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Artikel Terbaru", fontWeight = FontWeight.Bold)
-            TextButton(
-                onClick = {
-                    navController.navigate("my_articles")
-                }
-            ) {
-                Text("Artikel Saya", color = BluePrimary)
-            }
-        }
-
-        // ==================== LIST ARTIKEL / LOADING / ERROR ====================
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
+            item {
+                // ARTIKEL TERSIMPAN HEADER
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(color = BluePrimary)
-                }
-            }
-
-            errorMessage != null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = errorMessage,
-                        color = Color.Red
-                    )
-                }
-            }
-
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp)
-                ) {
-                    items(filteredArticles, key = { it.id }) { article ->
-
-                        // ✅ Tag untuk ditampilkan di kartu (bisa multi tag dipisah koma)
-                        val artikelTags = article.tag
-                            ?.split(",")
-                            ?.map { it.trim() }
-                            ?.filter { it.isNotEmpty() }
-                            ?: emptyList()
-
-                        ArticleCard(
-                            articleId = article.id.toString(),
-                            imageUrl = article.gambarUrl,
-                            categories = artikelTags,
-                            title = article.judul,
-                            readTime = article.waktuBaca ?: "-",
-                            onReadMoreClick = {
-                                navController.navigate("article_detail/${article.id}")
-                            }
-                        )
-
+                    Text("Artikel Tersimpan", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    TextButton(onClick = { navController.navigate("bookmark") }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Lihat Semua", color = BluePrimary)
+                            Icon(
+                                Icons.Default.ArrowForwardIos,
+                                contentDescription = null,
+                                tint = BluePrimary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // BUTTON BUAT ARTIKEL
+                OutlinedButton(
+                    onClick = { navController.navigate("create_article_meta") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = BluePrimary.copy(alpha = 0.08f)
+                    )
+                ) {
+                    Icon(Icons.Default.BookmarkAdd, contentDescription = null, tint = BluePrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Buat Artikel", color = BluePrimary, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = BluePrimary)
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ARTIKEL TERBARU HEADER
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Artikel Terbaru", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    TextButton(onClick = { navController.navigate("my_articles") }) {
+                        Text("Artikel Saya", color = BluePrimary)
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // ERROR MESSAGE
+                if (!errorMessage.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFFFEBEE), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = Color.Red,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            if (filteredArticlesSorted.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "Artikel tidak ditemukan." else "Belum ada artikel tersimpan.",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            } else {
+                items(filteredArticlesSorted, key = { it.id }) { article ->
+                    val artikelTags = article.tag
+                        ?.split(",")
+                        ?.map { it.trim() }
+                        ?.filter { it.isNotEmpty() }
+                        ?: emptyList()
+
+                    val existingBookmark = bookmarks.find { b ->
+                        b.artikelId == article.id && b.jenis == article.jenis
+                    }
+
+                    val isBookmarked = existingBookmark != null
+
+                    ArticleCard(
+                        articleId = article.id.toString(),
+                        imageUrl = article.gambarUrl,
+                        categories = artikelTags,
+                        title = article.judul,
+                        readTime = article.waktuBaca ?: "-",
+                        isBookmarked = isBookmarked,
+                        onBookmarkClick = {
+                            if (existingBookmark == null) {
+                                viewModel.addBookmark(article.id, article.jenis)
+                            } else {
+                                viewModel.deleteBookmark(existingBookmark.bookmarkId)
+                            }
+                        },
+                        onReadMoreClick = {
+                            navController.navigate("article_detail/${article.id}?source=public")
+                        }
+                    )
                 }
             }
         }
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun EducationScreenPreview() {
-    val nav = rememberNavController()
-    EducationScreen(navController = nav)
+// ==========================
+// UTILITY: parse date backend
+// ==========================
+private fun parseBackendDateToMillis(raw: String?): Long {
+    if (raw.isNullOrBlank()) return 0L
+    val patterns = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd"
+    )
+    for (pattern in patterns) {
+        try {
+            val sdf = SimpleDateFormat(pattern, Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val date = sdf.parse(raw)
+            if (date != null) return date.time
+        } catch (_: Exception) {}
+    }
+    return raw.hashCode().toLong()
 }
+

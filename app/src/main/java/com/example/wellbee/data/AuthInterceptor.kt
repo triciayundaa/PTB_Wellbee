@@ -5,13 +5,12 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 class AuthInterceptor(context: Context) : Interceptor {
-    private val prefs = context.getSharedPreferences("wellbee_prefs", Context.MODE_PRIVATE)
+    private val sessionManager = SessionManager(context)
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val requestBuilder = chain.request().newBuilder()
-        val token = prefs.getString("auth_token", null) // Ambil token yang tersimpan
+        val token = sessionManager.getToken()
 
-        // Jika token ada, tempelkan ke header Authorization
         if (!token.isNullOrEmpty()) {
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }

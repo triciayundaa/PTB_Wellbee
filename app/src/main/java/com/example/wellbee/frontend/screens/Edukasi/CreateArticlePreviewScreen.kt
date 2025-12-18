@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.wellbee.frontend.screens.Edukasi
 
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,21 +11,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.wellbee.R
 import com.example.wellbee.data.model.EducationViewModel
@@ -33,6 +37,7 @@ import com.example.wellbee.ui.theme.GrayBackground
 @Composable
 fun CreateArticlePreviewScreen(
     navController: NavHostController,
+    viewModel: EducationViewModel,
     category: String,
     readTime: String,
     tag: String,
@@ -41,99 +46,68 @@ fun CreateArticlePreviewScreen(
     imageUri: String? = null,
     articleId: String? = null
 ) {
-    val context = LocalContext.current
-    val viewModel = remember { EducationViewModel(context) }
+    val imageUriParsed = remember(imageUri) {
+        imageUri?.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
+    }
 
-    val showInfo = remember { mutableStateOf<String?>(null) }
+    var infoMessage by remember { mutableStateOf<String?>(null) }
+    val isLoading = viewModel.isLoading // 🔹 Mengambil state loading dari ViewModel
 
-    // 🔹 Pantau status upload dari ViewModel
-    LaunchedEffect(viewModel.uploadStatus) {
-        when (viewModel.uploadStatus) {
-            "SUCCESS" -> {
-                navController.navigate("education_list") {
-                    popUpTo("education_list") { inclusive = false }
+    // Fungsi navigasi yang membersihkan stack agar data terbaru muncul paling atas
+    fun navigateToMyArticles() {
+        navController.navigate("my_articles") {
+            // Membersihkan history navigasi pembuatan artikel agar tidak kembali ke Preview saat tekan back
+            popUpTo("education_list") { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+
+    // Fungsi Gabungan Aksi (Upload atau Update)
+    fun handleAksi(status: String) {
+        if (articleId == null) {
+            // MODE BUAT BARU
+            viewModel.uploadArticleWithImage(
+                imageUri = imageUriParsed,
+                kategori = category,
+                readTime = readTime,
+                tag = tag,
+                title = title,
+                content = content,
+                status = status,
+                onSuccess = {
+                    // 🔹 Navigasi HANYA dilakukan setelah data berhasil di-refresh di ViewModel
+                    navigateToMyArticles()
                 }
-            }
-            "FAILED" -> showInfo.value = "Gagal mengupload artikel."
-            "ERROR" -> showInfo.value = "Terjadi kesalahan saat upload."
+            )
+        } else {
+            // MODE EDIT
+            val id = articleId.toIntOrNull() ?: return
+            viewModel.updateMyArticle(
+                id = id,
+                kategori = category,
+                readTime = readTime,
+                tag = tag,
+                title = title,
+                content = content,
+                imageUri = imageUriParsed,
+                onSuccess = {
+                    // Pastikan status diperbarui sesuai pilihan user (Draft atau Uploaded)
+                    viewModel.changeMyArticleStatus(id, status)
+                    navigateToMyArticles()
+                },
+                onError = { error ->
+                    infoMessage = error
+                }
+            )
         }
     }
 
     Scaffold(
         topBar = {
-            Column(
-                modifier = Modifier.background(BluePrimary)
-            ) {
-                EducationTopBarWithBack(
-                    title = "Education",
-                    onBackClick = { navController.popBackStack() }
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Preview",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-
-                        // 🔹 SIMPAN SEBAGAI DRAFT (masih lokal seperti semula)
-                        TextButton(
-                            onClick = {
-                                MyArticleRepository.upsertFromPreview(
-                                    category = category,
-                                    readTime = readTime,
-                                    tag = tag,
-                                    title = title,
-                                    content = content,
-                                    status = MyArticleStatus.DRAFT
-                                )
-
-                                navController.navigate("my_articles") {
-                                    popUpTo("education_list") {
-                                        inclusive = false
-                                    }
-                                    launchSingleTop = true
-                                }
-                            }
-                        ) {
-                            Text("Tambahkan draft", color = Color.White)
-                        }
-
-                        // 🔹 UPLOAD KE BACKEND (artikel + gambar kalau ada)
-                        IconButton(
-                            onClick = {
-                                val uriObj = if (!imageUri.isNullOrBlank()) {
-                                    Uri.parse(imageUri)
-                                } else null
-
-                                viewModel.uploadArticleWithImage(
-                                    imageUri = uriObj,
-                                    kategori = category,
-                                    readTime = readTime,
-                                    tag = tag,
-                                    title = title,
-                                    content = content
-                                )
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Upload,
-                                contentDescription = "Upload",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                }
-            }
+            EducationTopBarWithBack(
+                title = "Preview Artikel",
+                onBackClick = { navController.popBackStack() }
+            )
         },
         containerColor = GrayBackground
     ) { padding ->
@@ -146,138 +120,135 @@ fun CreateArticlePreviewScreen(
                 .verticalScroll(rememberScrollState())
         ) {
 
+            // --- BAGIAN KONTEN ---
             Card(
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
-                modifier = Modifier.fillMaxSize()
+                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    // 🔹 Gambar dari URI kalau ada, kalau tidak pakai dummy
-                    if (!imageUri.isNullOrBlank()) {
-                        val uri = remember(imageUri) { Uri.parse(imageUri) }
-                        Image(
-                            painter = rememberAsyncImagePainter(model = uri),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    Text(
-                        text = title,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BluePrimary
+                Column(Modifier.padding(bottom = 24.dp)) {
+                    // IMAGE
+                    Image(
+                        painter = if (imageUriParsed != null)
+                            rememberAsyncImagePainter(imageUriParsed)
+                        else
+                            painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(250.dp)
+                            .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+                        contentScale = ContentScale.Crop
                     )
 
-                    Spacer(Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                         Text(
-                            text = "$category • $readTime",
+                            text = "${category.uppercase()} • $readTime",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            fontWeight = FontWeight.Bold,
+                            color = BluePrimary,
+                            letterSpacing = 1.sp
                         )
+
+                        Spacer(Modifier.height(8.dp))
+
                         Text(
-                            text = "19 Oktober 2025",
-                            fontSize = 12.sp,
-                            color = BluePrimary
+                            text = title,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1B3B6B),
+                            lineHeight = 32.sp
                         )
-                    }
 
-                    Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(12.dp))
 
-                    if (tag.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = BluePrimary.copy(alpha = 0.08f)
-                        ) {
-                            Text(
-                                text = "#$tag",
-                                color = BluePrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
+                        if (tag.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BluePrimary.copy(alpha = 0.1f),
+                                border = BorderStroke(1.dp, BluePrimary.copy(alpha = 0.2f))
+                            ) {
+                                Text(
+                                    "#$tag",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    color = BluePrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
+
+                        Spacer(Modifier.height(20.dp))
+                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                        Spacer(Modifier.height(20.dp))
+
+                        Text(
+                            text = content,
+                            fontSize = 15.sp,
+                            color = Color(0xFF444444),
+                            lineHeight = 24.sp,
+                            textAlign = TextAlign.Justify
+                        )
                     }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    Text(
-                        text = content,
-                        fontSize = 14.sp,
-                        color = Color(0xFF333333),
-                        lineHeight = 20.sp
-                    )
                 }
             }
-        }
 
-        if (showInfo.value != null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF355A84)),
-                    modifier = Modifier.padding(bottom = 24.dp)
+            // --- TOMBOL AKSI ---
+            if (isLoading) {
+                // Tampilkan indikator loading agar user tidak menekan tombol berkali-kali
+                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = BluePrimary)
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // TOMBOL SIMPAN DRAFT
+                    OutlinedButton(
+                        onClick = { handleAksi("draft") },
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.5.dp, BluePrimary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = BluePrimary)
                     ) {
-                        Text(
-                            text = showInfo.value ?: "",
-                            color = Color.White,
-                            fontSize = 13.sp
+                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Draft", fontWeight = FontWeight.Bold)
+                    }
+
+                    // TOMBOL UPLOAD
+                    Button(
+                        onClick = { handleAksi("uploaded") },
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BluePrimary,
+                            contentColor = Color.White
                         )
-                        Spacer(Modifier.width(12.dp))
-                        TextButton(onClick = { showInfo.value = null }) {
-                            Text("Tutup", color = Color.White)
-                        }
+                    ) {
+                        Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Upload", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
         }
     }
-}
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun CreateArticlePreviewScreenPreview() {
-    val nav = rememberNavController()
-    CreateArticlePreviewScreen(
-        navController = nav,
-        category = "Kesehatan Fisik",
-        readTime = "5 menit",
-        tag = "Produktif",
-        title = "Tips Tidur Nyenyak dan Nyaman",
-        content = "Ini contoh isi artikel",
-        imageUri = null
-    )
+    // Snackbar untuk Error/Info
+    infoMessage?.let {
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            containerColor = Color(0xFF323232),
+            action = {
+                TextButton(onClick = { infoMessage = null }) {
+                    Text("Tutup", color = Color.Yellow)
+                }
+            }
+        ) { Text(it, color = Color.White) }
+    }
 }

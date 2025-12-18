@@ -1,48 +1,59 @@
 package com.example.wellbee.frontend.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.wellbee.frontend.screens.Edukasi.ArticleDetailScreen
-import com.example.wellbee.frontend.screens.Edukasi.BookmarkScreen
-import com.example.wellbee.frontend.screens.Edukasi.CreateArticleContentScreen
-import com.example.wellbee.frontend.screens.Edukasi.CreateArticleMetaScreen
-import com.example.wellbee.frontend.screens.Edukasi.CreateArticlePreviewScreen
-import com.example.wellbee.frontend.screens.Edukasi.EducationArticles
-import com.example.wellbee.frontend.screens.Edukasi.EducationScreen
-import com.example.wellbee.frontend.screens.Edukasi.MyArticleRepository
-import com.example.wellbee.frontend.screens.Edukasi.MyArticlesScreen
+import com.example.wellbee.data.model.EducationViewModel
+import com.example.wellbee.frontend.education.MyArticlesScreen
+import com.example.wellbee.frontend.screens.Edukasi.*
 
 @Composable
 fun EducationNavGraph() {
-    // NavController khusus modul edukasi
     val eduNavController: NavHostController = rememberNavController()
+    val context = LocalContext.current
+
+    // 🔹 SOLUSI UTAMA: Inisialisasi ViewModel di sini agar di-share ke semua screen
+    // Ini memastikan data yang di-upload di Preview langsung muncul di MyArticlesScreen
+    val sharedViewModel = remember { EducationViewModel(context) }
 
     NavHost(
         navController = eduNavController,
         startDestination = "education_list"
     ) {
-        // 🔹 Halaman utama daftar artikel edukasi
+
+        /* ───────────── LIST / BOOKMARK / ARTIKEL SAYA ───────────── */
+
         composable("education_list") {
-            EducationScreen(navController = eduNavController)
+            EducationScreen(
+                navController = eduNavController,
+                viewModel = sharedViewModel // Kirim viewModel yang sama
+            )
         }
 
-        // 🔹 Halaman bookmark (Artikel Tersimpan)
         composable("bookmark") {
-            BookmarkScreen(navController = eduNavController)
+            BookmarkScreen(
+                navController = eduNavController,
+                viewModel = sharedViewModel // Kirim viewModel yang sama
+            )
         }
 
-        // 🔹 Halaman "Artikel Saya"
         composable("my_articles") {
-            MyArticlesScreen(navController = eduNavController)
+            MyArticlesScreen(
+                navController = eduNavController,
+                viewModel = sharedViewModel // Kirim viewModel yang sama
+            )
         }
 
-        // 🔹 STEP 1 – CreateArticleMetaScreen (buat baru / edit)
-        // articleId opsional → null = buat baru, ada nilai = edit
+        /* ───────────── FLOW BUAT / EDIT ARTIKEL ───────────── */
+
+        // STEP 1 — META
         composable(
             route = "create_article_meta?articleId={articleId}",
             arguments = listOf(
@@ -53,17 +64,17 @@ fun EducationNavGraph() {
                 }
             )
         ) { backStackEntry ->
-            val articleId = backStackEntry.arguments?.getString("articleId")
             CreateArticleMetaScreen(
                 navController = eduNavController,
-                articleId = articleId
+                viewModel = sharedViewModel, // Gunakan sharedViewModel agar data edit muncul
+                articleId = backStackEntry.arguments?.getString("articleId")
             )
         }
 
-        // 🔹 STEP 2 – CreateArticleContentScreen
-        //    articleId opsional (diteruskan dari meta kalau mode edit)
+        // STEP 2 — CONTENT
         composable(
-            route = "create_article_content/{category}/{readTime}/{tag}?articleId={articleId}",
+            route = "create_article_content/{category}/{readTime}/{tag}" +
+                    "?articleId={articleId}",
             arguments = listOf(
                 navArgument("category") { type = NavType.StringType },
                 navArgument("readTime") { type = NavType.StringType },
@@ -75,22 +86,17 @@ fun EducationNavGraph() {
                 }
             )
         ) { backStackEntry ->
-            val category = backStackEntry.arguments?.getString("category") ?: ""
-            val readTime = backStackEntry.arguments?.getString("readTime") ?: ""
-            val tag = backStackEntry.arguments?.getString("tag") ?: ""
-            val articleId = backStackEntry.arguments?.getString("articleId")
-
             CreateArticleContentScreen(
                 navController = eduNavController,
-                category = category,
-                readTime = readTime,
-                tag = tag,
-                articleId = articleId
+                viewModel = sharedViewModel, // Gunakan sharedViewModel
+                category = backStackEntry.arguments?.getString("category") ?: "",
+                readTime = backStackEntry.arguments?.getString("readTime") ?: "",
+                tag = backStackEntry.arguments?.getString("tag") ?: "",
+                articleId = backStackEntry.arguments?.getString("articleId")
             )
         }
 
-        // 🔹 STEP 3 – CreateArticlePreviewScreen
-        //    imageUri & articleId sebagai query parameter (aman untuk URI)
+        // STEP 3 — PREVIEW
         composable(
             route = "create_article_preview/{category}/{readTime}/{tag}/{title}/{content}" +
                     "?imageUri={imageUri}&articleId={articleId}",
@@ -112,83 +118,87 @@ fun EducationNavGraph() {
                 }
             )
         ) { backStackEntry ->
-            val category = backStackEntry.arguments?.getString("category") ?: ""
-            val readTime = backStackEntry.arguments?.getString("readTime") ?: ""
-            val tag = backStackEntry.arguments?.getString("tag") ?: ""
-            val title = backStackEntry.arguments?.getString("title") ?: ""
-            val content = backStackEntry.arguments?.getString("content") ?: ""
-
-            val imageUriRaw = backStackEntry.arguments?.getString("imageUri")
-            val articleId = backStackEntry.arguments?.getString("articleId")
-
-            // kalau imageUri kosong string => anggap null
-            val imageUri = imageUriRaw?.takeIf { it.isNotBlank() }
-
             CreateArticlePreviewScreen(
                 navController = eduNavController,
-                category = category,
-                readTime = readTime,
-                tag = tag,
-                title = title,
-                content = content,
-                imageUri = imageUri,
-                articleId = articleId
+                viewModel = sharedViewModel, // Gunakan sharedViewModel untuk proses upload/update
+                category = backStackEntry.arguments?.getString("category") ?: "",
+                readTime = backStackEntry.arguments?.getString("readTime") ?: "",
+                tag = backStackEntry.arguments?.getString("tag") ?: "",
+                title = backStackEntry.arguments?.getString("title") ?: "",
+                content = backStackEntry.arguments?.getString("content") ?: "",
+                imageUri = backStackEntry.arguments?.getString("imageUri"),
+                articleId = backStackEntry.arguments?.getString("articleId")
             )
         }
 
-        // 🔹 Halaman detail artikel (dipakai di modul edukasi)
+        /* ───────────── DETAIL ARTIKEL (BACKEND) ───────────── */
+
         composable(
-            route = "article_detail/{articleId}"
+            route = "article_detail/{articleId}?source={source}",
+            arguments = listOf(
+                navArgument("articleId") { type = NavType.StringType },
+                navArgument("source") {
+                    type = NavType.StringType
+                    defaultValue = "public"
+                }
+            )
         ) { backStackEntry ->
-            val articleId = backStackEntry.arguments?.getString("articleId")
+            val articleIdStr = backStackEntry.arguments?.getString("articleId")
+            val articleId = articleIdStr?.toIntOrNull()
+            val source = backStackEntry.arguments?.getString("source") ?: "public"
 
-            // 1. coba cari di artikel bawaan (dummy/static)
-            val articleStatic = EducationArticles.articles.find { it.id == articleId }
-            // 2. kalau tidak ketemu, coba cari di artikel user
-            val articleUser = if (articleId != null) {
-                MyArticleRepository.findById(articleId)
-            } else null
+            // Gunakan sharedViewModel di sini juga agar sinkron
+            LaunchedEffect(source) {
+                if (source == "my") sharedViewModel.loadMyArticles()
+                else sharedViewModel.loadArticles()
+            }
 
-            when {
-                // 🔹 Artikel bawaan
-                articleId != null && articleStatic != null -> {
+            if (articleId == null) {
+                ArticleDetailScreen(
+                    navController = eduNavController,
+                    articleId = "",
+                    title = "Artikel tidak valid",
+                    category = "Umum",
+                    readTime = "-",
+                    imageRes = null,
+                    imageUrl = null,
+                    content = "ID artikel tidak ditemukan."
+                )
+                return@composable
+            }
+
+            if (source == "my") {
+                val article = sharedViewModel.myArticles.find { it.id == articleId }
+                if (article != null) {
                     ArticleDetailScreen(
                         navController = eduNavController,
-                        articleId = articleId,
-                        title = articleStatic.title,
-                        category = articleStatic.categories.firstOrNull() ?: "Umum",
-                        readTime = articleStatic.readTime,
-                        imageRes = articleStatic.imageRes,
-                        content = articleStatic.content
-                    )
-                }
-
-                // 🔹 Artikel buatan user
-                articleId != null && articleUser != null -> {
-                    ArticleDetailScreen(
-                        navController = eduNavController,
-                        articleId = articleId,
-                        title = articleUser.title,
-                        category = articleUser.category,
-                        readTime = articleUser.readTime,
-                        imageRes = null,              // belum ada gambar user
-                        content = articleUser.content,
-                        isUserArticle = true,          // ⬅️ ini yang bikin "Penulis: Kamu"
-                        authorName = "Kamu",
-                        uploadedDate = articleUser.uploadedDate
-                    )
-                }
-
-                // 🔹 Fallback kalau tidak ditemukan
-                else -> {
-                    ArticleDetailScreen(
-                        navController = eduNavController,
-                        articleId = articleId ?: "",
-                        title = "Artikel tidak ditemukan",
-                        category = "Umum",
-                        readTime = "-",
+                        articleId = article.id.toString(),
+                        title = article.judul,
+                        category = article.kategori ?: "Umum",
+                        readTime = article.waktuBaca ?: "-",
                         imageRes = null,
-                        content = "Maaf, artikel yang Anda pilih tidak tersedia."
+                        imageUrl = article.gambarUrl,
+                        content = article.isi,
+                        isUserArticle = true,
+                        authorName = article.authorName ?: "Kamu",
+                        uploadedDate = article.tanggalUpload
+                    )
+                }
+            } else {
+                val article = sharedViewModel.articles.find { it.id == articleId }
+                if (article != null) {
+                    ArticleDetailScreen(
+                        navController = eduNavController,
+                        articleId = article.id.toString(),
+                        title = article.judul,
+                        category = article.kategori ?: "Umum",
+                        readTime = article.waktuBaca ?: "-",
+                        imageRes = null,
+                        imageUrl = article.gambarUrl,
+                        content = article.isi,
+                        isUserArticle = article.jenis == "user",
+                        authorName = article.authorName,
+                        uploadedDate = article.tanggal
                     )
                 }
             }

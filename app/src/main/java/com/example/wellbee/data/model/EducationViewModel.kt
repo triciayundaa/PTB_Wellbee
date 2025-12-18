@@ -13,10 +13,13 @@ class EducationViewModel(context: Context) : ViewModel() {
 
     private val repo = EducationRepository(context)
 
+    // ==========================
+    // ARTIKEL PUBLIK
+    // ==========================
+
     var articles by mutableStateOf<List<PublicArticleDto>>(emptyList())
         private set
 
-    // daftar kategori dari backend (tanpa "Semua")
     var categories by mutableStateOf<List<String>>(emptyList())
         private set
 
@@ -26,7 +29,6 @@ class EducationViewModel(context: Context) : ViewModel() {
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    // status upload artikel: null / SUCCESS / FAILED / ERROR
     var uploadStatus by mutableStateOf<String?>(null)
         private set
 
@@ -35,7 +37,9 @@ class EducationViewModel(context: Context) : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
+                // Memuat artikel publik dan diurutkan terbaru di atas
                 articles = repo.getPublicArticles()
+                    .sortedByDescending { it.tanggal }
             } catch (e: Exception) {
                 e.printStackTrace()
                 errorMessage = e.message ?: "Gagal memuat artikel"
@@ -45,76 +49,283 @@ class EducationViewModel(context: Context) : ViewModel() {
         }
     }
 
-    // panggil endpoint GET /api/edukasi/categories
-    fun loadCategories() {
+    fun searchArticles(query: String) {
         viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
             try {
-                val result = repo.getCategories()
-                categories = result
+                articles = repo.getPublicArticles(query.takeIf { it.isNotBlank() })
+                    .sortedByDescending { it.tanggal }
             } catch (e: Exception) {
                 e.printStackTrace()
-                // kalau gagal, biarkan saja: UI tetap jalan
+                errorMessage = e.message ?: "Gagal mencari artikel"
+            } finally {
+                isLoading = false
             }
         }
     }
 
-    /**
-     * Upload artikel:
-     * - kalau imageUri != null → upload gambar dulu → dapat url → kirim bareng artikel
-     * - kalau imageUri == null → kirim artikel tanpa gambar_url
-     */
+    fun loadCategories() {
+        viewModelScope.launch {
+            try {
+                categories = repo.getCategories()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // ==========================
+    // SEARCH HISTORY
+    // ==========================
+
+    var recentSearches by mutableStateOf<List<String>>(emptyList())
+        private set
+
+    fun loadRecentSearches(limit: Int = 8) {
+        viewModelScope.launch {
+            recentSearches = repo.getRecentSearches(limit)
+        }
+    }
+
+    fun recordSearch(query: String) {
+        viewModelScope.launch {
+            repo.recordSearch(query)
+            recentSearches = repo.getRecentSearches(8)
+        }
+    }
+
+    fun clearSearchHistory() {
+        viewModelScope.launch {
+            repo.clearSearchHistory()
+            recentSearches = emptyList()
+        }
+    }
+
+    // ==========================
+    // UPLOAD ARTIKEL (BACKEND)
+    // ==========================
+
+    // PERBAIKAN: Ditambahkan parameter onSuccess: () -> Unit
     fun uploadArticleWithImage(
         imageUri: Uri?,
         kategori: String,
         readTime: String,
         tag: String,
         title: String,
-        content: String
+        content: String,
+        status: String,
+        onSuccess: () -> Unit = {} // Parameter baru untuk sinkronisasi navigasi
     ) {
         viewModelScope.launch {
             try {
+                isLoading = true // Aktifkan loading saat upload
                 uploadStatus = null
 
-                // 1. upload gambar kalau ada
-                val gambarUrl: String? = if (imageUri != null) {
-                    repo.uploadImage(imageUri)
-                } else {
-                    null
+                val imageUrl = when {
+                    imageUri == null -> null
+                    imageUri.toString().startsWith("http", true) -> imageUri.toString()
+                    else -> repo.uploadImage(imageUri)
                 }
 
-                // 2. kirim artikel ke backend
                 val success = repo.createMyArticle(
                     kategori = kategori,
                     readTime = readTime,
                     tag = tag,
                     title = title,
                     content = content,
-                    gambarUrl = gambarUrl
+                    gambarUrl = imageUrl,
+                    status = status
                 )
 
-                uploadStatus = if (success) "SUCCESS" else "FAILED"
+                if (success) {
+                    uploadStatus = "SUCCESS"
+                    // Paksa memuat ulang data terbaru dari server agar list sinkron
+                    val updatedMyArticles = repo.getMyArticles()
+                    myArticles = updatedMyArticles.sortedByDescending { it.id }
+
+                    val updatedPublic = repo.getPublicArticles()
+                    articles = updatedPublic.sortedByDescending { it.tanggal }
+
+                    onSuccess() // Navigasi dilakukan HANYA setelah data berhasil di-refresh
+                } else {
+                    uploadStatus = "FAILED"
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 uploadStatus = "ERROR"
+            } finally {
+                isLoading = false
             }
         }
     }
 
-    // OPTIONAL: supaya kode lama uploadArticle masih bisa dipakai
-    fun uploadArticle(
+    // ==========================
+    // BOOKMARK
+    // ==========================
+
+    var bookmarks by mutableStateOf<List<BookmarkDto>>(emptyList())
+        private set
+
+    var isLoadingBookmarks by mutableStateOf(false)
+        private set
+
+    var bookmarkError by mutableStateOf<String?>(null)
+        private set
+
+    fun loadBookmarks() {
+        viewModelScope.launch {
+            isLoadingBookmarks = true
+            bookmarkError = null
+            try {
+                bookmarks = repo.getBookmarks()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                bookmarkError = e.message ?: "Gagal memuat bookmark"
+            } finally {
+                isLoadingBookmarks = false
+            }
+        }
+    }
+
+    fun addBookmark(artikelId: Int, jenis: String) {
+        viewModelScope.launch {
+            try {
+                bookmarkError = null
+                repo.addBookmark(artikelId, jenis)
+                bookmarks = repo.getBookmarks()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                bookmarkError = e.message ?: "Gagal menambah bookmark"
+            }
+        }
+    }
+
+    fun deleteBookmark(bookmarkId: Int) {
+        viewModelScope.launch {
+            try {
+                bookmarkError = null
+                repo.deleteBookmark(bookmarkId)
+                bookmarks = repo.getBookmarks()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                bookmarkError = e.message ?: "Gagal menghapus bookmark"
+            }
+        }
+    }
+
+    fun markBookmarkAsRead(bookmarkId: Int) {
+        viewModelScope.launch {
+            try {
+                bookmarkError = null
+                repo.markBookmarkAsRead(bookmarkId)
+                bookmarks = repo.getBookmarks()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                bookmarkError = e.message ?: "Gagal menandai terbaca"
+            }
+        }
+    }
+
+    // ==========================
+    // ARTIKEL SAYA (MY ARTICLES)
+    // ==========================
+
+    var myArticles by mutableStateOf<List<MyArticleDto>>(emptyList())
+        private set
+
+    var isLoadingMyArticles by mutableStateOf(false)
+        private set
+
+    var myArticleError by mutableStateOf<String?>(null)
+        private set
+
+    fun loadMyArticles() {
+        viewModelScope.launch {
+            isLoadingMyArticles = true
+            myArticleError = null
+            try {
+                // Selalu urutkan berdasarkan ID terbesar (terbaru) agar muncul teratas
+                myArticles = repo.getMyArticles().sortedByDescending { it.id }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                myArticleError = e.message ?: "Gagal memuat artikel saya"
+            } finally {
+                isLoadingMyArticles = false
+            }
+        }
+    }
+
+    fun changeMyArticleStatus(articleId: Int, newStatus: String) {
+        viewModelScope.launch {
+            try {
+                val success = repo.updateMyArticleStatus(articleId, newStatus)
+                if (success) {
+                    myArticles = myArticles.map {
+                        if (it.id == articleId) it.copy(status = newStatus) else it
+                    }
+                    // Refresh artikel publik juga jika status berubah ke "uploaded"
+                    loadArticles()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deleteMyArticle(articleId: Int) {
+        viewModelScope.launch {
+            try {
+                val success = repo.deleteMyArticle(articleId)
+                if (success) {
+                    myArticles = myArticles.filter { it.id != articleId }
+                    loadArticles() // Sinkronkan halaman publik
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun updateMyArticle(
+        id: Int,
         kategori: String,
         readTime: String,
         tag: String,
         title: String,
-        content: String
+        content: String,
+        imageUri: Uri?,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
     ) {
-        uploadArticleWithImage(
-            imageUri = null,
-            kategori = kategori,
-            readTime = readTime,
-            tag = tag,
-            title = title,
-            content = content
-        )
+        viewModelScope.launch {
+            try {
+                isLoadingMyArticles = true
+                myArticleError = null
+
+                val updated = repo.updateMyArticle(
+                    id = id,
+                    judul = title,
+                    isi = content,
+                    kategori = kategori,
+                    waktuBaca = readTime,
+                    tag = tag,
+                    imageUri = imageUri
+                )
+
+                // Refresh seluruh list agar urutan tetap benar setelah update
+                myArticles = repo.getMyArticles().sortedByDescending { it.id }
+                loadArticles() // Sinkronkan ke publik jika artikel sudah terupload
+
+                onSuccess()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val msg = e.message ?: "Gagal mengupdate artikel"
+                myArticleError = msg
+                onError(msg)
+            } finally {
+                isLoadingMyArticles = false
+            }
+        }
     }
 }

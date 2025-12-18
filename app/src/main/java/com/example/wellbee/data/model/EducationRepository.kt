@@ -3,6 +3,8 @@ package com.example.wellbee.data.model
 import android.content.Context
 import android.net.Uri
 import com.example.wellbee.data.RetrofitClient
+import com.example.wellbee.data.local.AppDatabase
+import com.example.wellbee.data.local.SearchHistoryEntity
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -10,45 +12,137 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class EducationRepository(private val context: Context) {
 
     private val api = RetrofitClient.getInstance(context)
+    private val baseUrl = "http://10.85.137.27:3000"
 
-    // BASE URL backend (tanpa / di belakang, biar concat rapi)
-    private val baseUrl = "http://10.180.186.27:3000"
+    private val db = AppDatabase.getInstance(context)
+    private val artikelDao = db.artikelDao()
+    private val bookmarkDao = db.bookmarkDao()
+    private val searchHistoryDao = db.searchHistoryDao()
 
-    // 🔹 Ambil artikel publik (static + user uploaded)
-    suspend fun getPublicArticles(): List<PublicArticleDto> {
-        val response = api.getPublicArticles()
+    // ==========================
+    // ARTIKEL PUBLIK
+    // ==========================
+    suspend fun getPublicArticles(search: String? = null): List<PublicArticleDto> {
+        val keyword = search?.trim().orEmpty()
 
-        return response.articles.map { article ->
-            val fixedUrl = article.gambarUrl?.let { url ->
-                when {
-                    url.startsWith("http") -> url
-                    url.startsWith("/") -> baseUrl + url        // "/uploads/xxx.jpg"
-                    else -> "$baseUrl/$url"                     // "uploads/xxx.jpg"
+        return try {
+            val response = api.getPublicArticles()
+
+            val fixed = response.articles.map { article ->
+                val fixedUrl = article.gambarUrl?.let { url ->
+                    when {
+                        url.startsWith("http") -> url
+                        url.startsWith("/") -> baseUrl + url
+                        else -> "$baseUrl/$url"
+                    }
                 }
+                article.copy(gambarUrl = fixedUrl)
             }
 
-            println("FINAL GAMBAR URL = $fixedUrl")
-            article.copy(gambarUrl = fixedUrl)
+            artikelDao.upsertAll(fixed.map { it.toEntity() })
+
+            val result = if (keyword.isNotBlank()) {
+                fixed.filter {
+                    it.judul.contains(keyword, true) ||
+                            it.isi.contains(keyword, true) ||
+                            (it.tag?.contains(keyword, true) == true)
+                }
+            } else fixed
+
+            result.sortedByDescending { it.tanggal }
+        } catch (e: Exception) {
+            val cached = if (keyword.isNotBlank()) {
+                artikelDao.searchOnce(keyword)
+            } else {
+                artikelDao.getAllOnce()
+            }
+            cached.map { it.toDto() }
         }
     }
 
-    // 🔹 Ambil kategori dari backend
     suspend fun getCategories(): List<String> {
-        val response = api.getCategories()
-        return response.categories
+        return api.getCategories().categories
     }
 
-    // 🔹 Upload gambar ke backend, balikan URL (biasanya "/uploads/xxx.jpg")
+    // ==========================
+    // BOOKMARK
+    // ==========================
+    private suspend fun syncPendingDeletes() {
+        val pendingIds = bookmarkDao.getPendingDeleteIds()
+        if (pendingIds.isEmpty()) return
+
+        for (id in pendingIds) {
+            try {
+                api.deleteBookmark(id)
+                bookmarkDao.deleteById(id)
+            } catch (_: Exception) {}
+        }
+    }
+
+    suspend fun getBookmarks(): List<BookmarkDto> {
+        return try {
+            syncPendingDeletes()
+            val response = api.getBookmarks()
+
+            val fixed = response.bookmarks.map { bookmark ->
+                val fixedUrl = bookmark.gambarUrl?.let { url ->
+                    when {
+                        url.startsWith("http") -> url
+                        url.startsWith("/") -> baseUrl + url
+                        else -> "$baseUrl/$url"
+                    }
+                }
+                bookmark.copy(gambarUrl = fixedUrl)
+            }
+
+            val pendingIds = bookmarkDao.getPendingDeleteIds().toSet()
+            val filteredForUpsert = fixed.filterNot { it.bookmarkId in pendingIds }
+
+            bookmarkDao.upsertAll(filteredForUpsert.map { it.toEntity(isDeleted = 0) })
+            bookmarkDao.getAllOnce().map { it.toDto() }
+        } catch (e: Exception) {
+            bookmarkDao.getAllOnce().map { it.toDto() }
+        }
+    }
+
+    suspend fun addBookmark(artikelId: Int, jenis: String): String {
+        val res = api.addBookmark(AddBookmarkRequest(artikelId, jenis))
+        getBookmarks()
+        return res.message
+    }
+
+    suspend fun deleteBookmark(bookmarkId: Int): String {
+        bookmarkDao.softDeleteById(bookmarkId)
+        return try {
+            val res = api.deleteBookmark(bookmarkId)
+            bookmarkDao.deleteById(bookmarkId)
+            res.message
+        } catch (e: Exception) {
+            "Offline: bookmark dihapus lokal dan akan disinkronkan saat online."
+        }
+    }
+
+    suspend fun markBookmarkAsRead(bookmarkId: Int): String {
+        bookmarkDao.markAsReadLocal(bookmarkId)
+        return try {
+            val res = api.markBookmarkAsRead(bookmarkId)
+            res.message
+        } catch (e: Exception) {
+            "Offline: status dibaca tersimpan lokal dan akan disinkronkan saat online."
+        }
+    }
+
+    // ==========================
+    // UPLOAD ARTIKEL USER
+    // ==========================
     suspend fun uploadImage(imageUri: Uri): String {
-        val contentResolver = context.contentResolver
-        val stream = contentResolver.openInputStream(imageUri)
+        val stream = context.contentResolver.openInputStream(imageUri)
             ?: throw Exception("Tidak bisa membuka gambar")
 
         val bytes = stream.readBytes()
         stream.close()
 
         val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-
         val part = MultipartBody.Part.createFormData(
             name = "image",
             filename = "artikel_${System.currentTimeMillis()}.jpg",
@@ -60,30 +154,134 @@ class EducationRepository(private val context: Context) {
             throw Exception("Upload gambar gagal: ${response.code()}")
         }
 
-        // contoh: "/uploads/artikel_123.jpg"
         return response.body()!!.url
     }
 
-    // 🔹 Create artikel user (opsional pakai url gambar)
     suspend fun createMyArticle(
         kategori: String,
         readTime: String,
         tag: String,
         title: String,
         content: String,
-        gambarUrl: String?
+        gambarUrl: String?,
+        status: String
     ): Boolean {
-
         val body = CreateArticleRequest(
             kategori = kategori,
             waktu_baca = readTime,
             tag = tag,
             judul = title,
             isi = content,
-            gambar_url = gambarUrl
+            gambar_url = gambarUrl,
+            status = status
         )
 
         val response = api.createMyArticle(body)
+        if (!response.isSuccessful) {
+            throw Exception("Upload artikel gagal: ${response.code()} ${response.message()}")
+        }
+        return true
+    }
+
+    // ==========================
+    // ARTIKEL SAYA
+    // ==========================
+    suspend fun getMyArticles(): List<MyArticleDto> {
+        val response = api.getMyArticles()
+        return response.articles.map { article ->
+            val fixedUrl = article.gambarUrl?.let { url ->
+                when {
+                    url.startsWith("http") -> url
+                    url.startsWith("/") -> baseUrl + url
+                    else -> "$baseUrl/$url"
+                }
+            }
+            article.copy(gambarUrl = fixedUrl)
+        }
+    }
+
+    suspend fun updateMyArticleStatus(articleId: Int, newStatus: String): Boolean {
+        val response = api.updateMyArticleStatus(
+            id = articleId,
+            request = UpdateArticleStatusRequest(newStatus)
+        )
         return response.isSuccessful
+    }
+
+    suspend fun deleteMyArticle(articleId: Int): Boolean {
+        val response = api.deleteMyArticle(articleId)
+        return response.isSuccessful
+    }
+
+    suspend fun updateMyArticle(
+        id: Int,
+        judul: String,
+        isi: String,
+        kategori: String,
+        waktuBaca: String,
+        tag: String,
+        imageUri: Uri?
+    ): MyArticleDto {
+
+        fun String.toPart() = this.toRequestBody("text/plain".toMediaTypeOrNull())
+
+        val judulPart = judul.toPart()
+        val isiPart = isi.toPart()
+        val kategoriPart = kategori.toPart()
+        val waktuBacaPart = waktuBaca.toPart()
+        val tagPart = tag.toPart()
+
+        val gambarPart: MultipartBody.Part? = when {
+            imageUri == null -> null
+            imageUri.toString().startsWith("http", true) -> null
+            else -> {
+                val stream = context.contentResolver.openInputStream(imageUri)
+                    ?: throw Exception("Tidak bisa membuka gambar")
+                val bytes = stream.readBytes()
+                stream.close()
+
+                val reqBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+                MultipartBody.Part.createFormData(
+                    name = "gambar",
+                    filename = "artikel_${System.currentTimeMillis()}.jpg",
+                    body = reqBody
+                )
+            }
+        }
+
+        val response = api.updateMyArticle(
+            id = id,
+            judul = judulPart,
+            isi = isiPart,
+            kategori = kategoriPart,
+            waktuBaca = waktuBacaPart,
+            tag = tagPart,
+            gambar = gambarPart
+        )
+
+        return response.data
+    }
+
+    // ==========================
+    // SEARCH HISTORY (ROOM)
+    // ==========================
+    suspend fun recordSearch(query: String) {
+        val q = query.trim()
+        if (q.isBlank()) return
+
+        searchHistoryDao.upsert(
+            SearchHistoryEntity(
+                query = q,
+                lastUsedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun getRecentSearches(limit: Int = 8): List<String> {
+        return searchHistoryDao.getRecent(limit).map { it.query }
+    }
+
+    suspend fun clearSearchHistory() {
+        searchHistoryDao.clearAll()
     }
 }
