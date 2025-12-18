@@ -2,9 +2,14 @@
 
 package com.example.wellbee.frontend.screens.Edukasi
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,11 +31,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.EducationTopBarWithBack
@@ -55,11 +60,43 @@ fun CreateArticleContentScreen(
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    /** ================= IMAGE PICKER ================= */
+    // State untuk Bottom Sheet
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
+    /** ================= IMAGE LAUNCHERS ================= */
+
+    // 1. Launcher untuk Kamera
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            val path = MediaStore.Images.Media.insertImage(
+                context.contentResolver,
+                bitmap,
+                "Wellbee_${System.currentTimeMillis()}",
+                null
+            )
+            selectedImageUri = Uri.parse(path)
+        }
+    }
+
+    // 2. Launcher untuk Galeri
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) selectedImageUri = uri
+    }
+
+    // 3. Launcher untuk meminta izin kamera
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch()
+        } else {
+            Toast.makeText(context, "Izin kamera ditolak", Toast.LENGTH_SHORT).show()
+        }
     }
 
     /** ================= LOGIKA LOAD DATA (MODE EDIT) ================= */
@@ -67,17 +104,15 @@ fun CreateArticleContentScreen(
 
     LaunchedEffect(Unit) {
         if (articleId != null) {
-            viewModel.loadMyArticles() // Mengambil daftar artikel saya untuk mencari data lama
+            viewModel.loadMyArticles()
         }
     }
 
-    // Sinkronisasi data lama ke state input agar muncul di layar
     LaunchedEffect(myArticles) {
         if (articleId != null) {
             val idInt = articleId.toIntOrNull()
             val article = myArticles.find { it.id == idInt }
             article?.let {
-                // Hanya mengisi jika state masih kosong untuk menghindari override saat user mengetik ulang
                 if (title.isEmpty()) title = it.judul
                 if (content.isEmpty()) content = it.isi
                 if (selectedImageUri == null && !it.gambarUrl.isNullOrEmpty()) {
@@ -91,7 +126,7 @@ fun CreateArticleContentScreen(
     Scaffold(
         topBar = {
             EducationTopBarWithBack(
-                title = "Education",
+                title = "Isi Konten",
                 onBackClick = { navController.popBackStack() }
             )
         },
@@ -105,66 +140,54 @@ fun CreateArticleContentScreen(
                 .background(GrayBackground)
                 .verticalScroll(rememberScrollState())
                 .imePadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(24.dp)
         ) {
 
             Text(
-                text = if (articleId == null) "Isi Konten Artikel" else "Edit Konten Artikel",
+                text = if (articleId == null) "Tulis Artikelmu" else "Edit Konten Artikel",
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = BluePrimary,
-                modifier = Modifier.padding(bottom = 16.dp)
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF1B3B6B),
+                modifier = Modifier.padding(bottom = 24.dp)
             )
 
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFD9E1F0).copy(alpha = 0.7f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(20.dp)) {
 
-                    /** ================= TITLE ================= */
+                    /** JUDUL **/
                     Text("Judul Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
-
-                    TextField(
+                    OutlinedTextField(
                         value = title,
-                        onValueChange = {
-                            title = it
-                            titleError = null
-                        },
-                        placeholder = { Text("Contoh: Tips Hidup Sehat", color = Color.Gray) },
-                        singleLine = true,
-                        textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
+                        onValueChange = { title = it; titleError = null },
+                        placeholder = { Text("Tulis judul menarik...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(color = Color.Black),
                         shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedTextColor = Color.Black,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BluePrimary,
                             unfocusedTextColor = Color.Black,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                            focusedTextColor = Color.Black
+                        )
                     )
-
-                    titleError?.let {
-                        Text(it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                    }
+                    titleError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
 
                     Spacer(Modifier.height(20.dp))
 
-                    /** ================= IMAGE PICKER ================= */
+                    /** GAMBAR SAMPUL **/
                     Text("Gambar Sampul", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
-
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(180.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFFB4C3DD))
-                            .clickable { galleryLauncher.launch("image/*") },
+                            .background(Color(0xFFF0F4F8))
+                            .clickable { showBottomSheet = true },
                         contentAlignment = Alignment.Center
                     ) {
                         if (selectedImageUri != null) {
@@ -174,78 +197,46 @@ fun CreateArticleContentScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
-                            // Overlay ganti gambar
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.BottomEnd
-                            ) {
-                                Surface(
-                                    color = Color.Black.copy(alpha = 0.6f),
-                                    modifier = Modifier.padding(8.dp),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Ganti Gambar", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(6.dp))
-                                }
-                            }
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    Icons.Default.CameraAlt,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(44.dp)
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text("Upload Gambar", color = Color.White, fontWeight = FontWeight.Medium)
+                                Icon(Icons.Default.CameraAlt, null, tint = BluePrimary, modifier = Modifier.size(40.dp))
+                                Text("Tambah Gambar", color = BluePrimary, fontSize = 12.sp)
                             }
                         }
                     }
 
                     Spacer(Modifier.height(20.dp))
 
-                    /** ================= CONTENT ================= */
+                    /** ISI KONTEN **/
                     Text("Isi Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
-
-                    TextField(
+                    OutlinedTextField(
                         value = content,
-                        onValueChange = {
-                            content = it
-                            contentError = null
-                        },
-                        placeholder = { Text("Tuliskan detail informasi artikel di sini...", color = Color.Gray) },
+                        onValueChange = { content = it; contentError = null },
+                        placeholder = { Text("Tuliskan detail informasi di sini...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(color = Color.Black),
                         minLines = 8,
-                        textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedTextColor = Color.Black,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BluePrimary,
                             unfocusedTextColor = Color.Black,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                            focusedTextColor = Color.Black
+                        )
                     )
-
-                    contentError?.let {
-                        Text(it, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                    }
+                    contentError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
                 }
             }
 
             Spacer(Modifier.height(32.dp))
 
-            /** ================= BUTTON PREVIEW ================= */
+            /** BUTTON PREVIEW **/
             Button(
                 onClick = {
-                    var valid = true
-                    if (title.isBlank()) { titleError = "Judul tidak boleh kosong"; valid = false }
-                    if (content.isBlank()) { contentError = "Isi artikel tidak boleh kosong"; valid = false }
+                    if (title.isBlank()) titleError = "Judul wajib diisi"
+                    if (content.isBlank()) contentError = "Isi artikel wajib diisi"
 
-                    if (valid) {
+                    if (title.isNotBlank() && content.isNotBlank()) {
                         val baseRoute = "create_article_preview/" +
                                 "${Uri.encode(category)}/" +
                                 "${Uri.encode(readTime)}/" +
@@ -255,27 +246,79 @@ fun CreateArticleContentScreen(
 
                         val imageArg = Uri.encode(selectedImageUri?.toString() ?: "")
                         val fullRoute = if (articleId != null) {
-                            "$baseRoute?imageUri=$imageArg&articleId=${Uri.encode(articleId)}"
+                            "$baseRoute?imageUri=$imageArg&articleId=$articleId"
                         } else {
                             "$baseRoute?imageUri=$imageArg"
                         }
                         navController.navigate(fullRoute)
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = BluePrimary,
                     contentColor = Color.White
                 )
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Lihat Preview", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
+                Icon(Icons.Default.Visibility, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Lihat Preview", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    /** ================= MODAL BOTTOM SHEET (KAMERA / GALERI) ================= */
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = Color.White, // Memastikan background sheet putih
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White) // Penegasan background putih
+                    .padding(bottom = 32.dp, start = 24.dp, end = 24.dp, top = 8.dp)
+            ) {
+                Text(
+                    text = "Pilih Sumber Gambar",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF1B3B6B),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Opsi Kamera
+                ListItem(
+                    headlineContent = {
+                        Text("Ambil Foto dari Kamera", color = Color.Black, fontWeight = FontWeight.Medium)
+                    },
+                    leadingContent = { Icon(Icons.Default.CameraAlt, null, tint = BluePrimary) },
+                    colors = ListItemDefaults.colors(containerColor = Color.White), // 🔹 Perbaikan warna di sini
+                    modifier = Modifier.clickable {
+                        showBottomSheet = false
+                        val permissionCheckResult = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                        if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
+                            cameraLauncher.launch()
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    }
+                )
+
+                // Opsi Galeri
+                ListItem(
+                    headlineContent = {
+                        Text("Pilih dari Galeri", color = Color.Black, fontWeight = FontWeight.Medium)
+                    },
+                    leadingContent = { Icon(Icons.Default.Image, null, tint = BluePrimary) },
+                    colors = ListItemDefaults.colors(containerColor = Color.White), // 🔹 Perbaikan warna di sini
+                    modifier = Modifier.clickable {
+                        showBottomSheet = false
+                        galleryLauncher.launch("image/*")
+                    }
+                )
             }
         }
     }
