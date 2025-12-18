@@ -33,6 +33,20 @@ fun WeightScreen(navController: NavHostController) {
     val repo = remember { FisikRepository(context) }
     val scope = rememberCoroutineScope()
 
+    // Warna Tema
+    val BluePrimary = Color(0xFF0E4DA4)
+
+    // 🔥 PENTING: Setting Warna Input Form (Agar Tulisan Kelihatan)
+    val inputColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.Black,     // Teks saat mengetik jadi HITAM
+        unfocusedTextColor = Color.Black,   // Teks saat tidak diklik jadi HITAM
+        cursorColor = BluePrimary,          // Kursor warna Biru
+        focusedBorderColor = BluePrimary,   // Garis pinggir saat aktif Biru
+        unfocusedBorderColor = Color.Gray,  // Garis pinggir diam Abu
+        focusedLabelColor = BluePrimary,    // Label saat aktif Biru
+        unfocusedLabelColor = Color.Gray    // Label diam Abu
+    )
+
     // ================= STATE =================
     var berat by remember { mutableStateOf("") }
     var tinggi by remember { mutableStateOf("") }
@@ -82,11 +96,12 @@ fun WeightScreen(navController: NavHostController) {
             text = "Catat Berat & Tinggi Badan",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0E4DA4)
+            color = BluePrimary
         )
 
         Spacer(Modifier.height(16.dp))
 
+        // Input Berat Badan
         OutlinedTextField(
             value = berat,
             onValueChange = {
@@ -95,11 +110,13 @@ fun WeightScreen(navController: NavHostController) {
             },
             label = { Text("Berat Badan (kg)") },
             placeholder = { Text("Contoh: 65.5") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = inputColors // 🔥 Pasang warna disini
         )
 
         Spacer(Modifier.height(12.dp))
 
+        // Input Tinggi Badan
         OutlinedTextField(
             value = tinggi,
             onValueChange = {
@@ -108,7 +125,8 @@ fun WeightScreen(navController: NavHostController) {
             },
             label = { Text("Tinggi Badan (cm)") },
             placeholder = { Text("Contoh: 170") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = inputColors // 🔥 Pasang warna disini
         )
 
         Spacer(Modifier.height(12.dp))
@@ -142,9 +160,9 @@ fun WeightScreen(navController: NavHostController) {
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("BMI Anda", fontWeight = FontWeight.Bold)
-                    Text(String.format("%.1f", bmi), fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text(kategori)
+                    Text("BMI Anda", fontWeight = FontWeight.Bold, color = Color.Black)
+                    Text(String.format("%.1f", bmi), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    Text(kategori, color = Color.Black)
                 }
             }
         }
@@ -169,9 +187,7 @@ fun WeightScreen(navController: NavHostController) {
             Spacer(Modifier.width(16.dp))
 
             Button(
-                // 🔥 HAPUS 'enabled = isValid' AGAR TOMBOL SELALU AKTIF (BIRU)
                 onClick = {
-                    // 🔥 PINDAHKAN PENGECEKAN KE SINI
                     if (isValid) {
                         val req = WeightRequest(
                             beratBadan = beratVal!!,
@@ -185,7 +201,6 @@ fun WeightScreen(navController: NavHostController) {
                             val result = repo.catatWeight(req)
                             if (result.isSuccess) {
                                 Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
-
                                 // Reset Input
                                 berat = ""
                                 tinggi = ""
@@ -195,19 +210,17 @@ fun WeightScreen(navController: NavHostController) {
                             }
                         }
                     } else {
-                        // TAMPILKAN PESAN JIKA DATA BELUM LENGKAP
                         Toast.makeText(context, "Mohon lengkapi semua data!", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0E4DA4),
+                    containerColor = BluePrimary,
                     contentColor = Color.White
                 )
             ) {
                 Text("Simpan")
             }
-
         }
     }
 }
