@@ -66,6 +66,7 @@ dependencies {
     implementation("com.patrykandpatrick.vico:views:1.14.0")
     implementation("com.google.accompanist:accompanist-navigation-animation:0.32.0")
     implementation("androidx.compose.animation:animation")
+    implementation("androidx.work:work-runtime-ktx:2.8.1") // atau versi terbaru
 
     //backend
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
