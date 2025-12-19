@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "296003668210",
+    "project_id": "notifikasi-wellbe",
+    "storage_bucket": "notifikasi-wellbe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:296003668210:android:7e5a596b9b9c2f342aa86b",
+        "android_client_info": {
+          "package_name": "com.example.wellbee"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGfJkqSOLGwDeK5YtO0Yr10RNXv6ZmJ4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

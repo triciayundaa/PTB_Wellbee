@@ -1,12 +1,14 @@
 package com.example.wellbee
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import androidx.work.*
@@ -15,6 +17,7 @@ import com.example.wellbee.ui.theme.WellbeeTheme
 import com.example.wellbee.worker.ReminderWorker
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
 
@@ -31,22 +34,41 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 2. Cek Izin saat aplikasi baru dibuka
-        checkNotificationPermission()
+        println("LOG_TEST: Aplikasi Wellbee Running!")
 
-        // 3. Jadwalkan Notifikasi Harian (Jam 20:00)
+        FirebaseMessaging.getInstance().subscribeToTopic("new_articles")
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    // Gunakan println agar sama dengan LOG_TEST
+                    println("LOG_TEST: FCM Sukses subscribe ke topik new_articles")
+                } else {
+                    println("LOG_TEST: FCM Gagal subscribe: ${task.exception?.message}")
+                }
+            }
+
+        // 2. Cek Izin dan Jadwalkan Notifikasi
+        checkNotificationPermission()
         setupDailyReminder()
 
-        // 4. Setup UI (Navigasi)
         setContent {
             WellbeeTheme {
                 val navController = rememberNavController()
+
+                // --- 🔹 LOGIKA NAVIGASI NOTIFIKASI 🔹 ---
+                LaunchedEffect(intent) {
+                    val articleId = intent.getStringExtra("articleId")
+                    if (!articleId.isNullOrBlank()) {
+                        // Navigasi ke rute global yang ada di NavGraph
+                        navController.navigate("article_detail/$articleId?source=public")
+                    }
+                }
+
                 NavGraph(navController = navController)
             }
         }
     }
 
-    // --- FUNGSI BANTUAN (LOGIKA FATHIYA) ---
+    // --- FUNGSI BANTUAN ---
 
     private fun checkNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -59,6 +81,11 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent) // Update intent lama agar LaunchedEffect bisa menangkap articleId baru
     }
 
     private fun setupDailyReminder() {
