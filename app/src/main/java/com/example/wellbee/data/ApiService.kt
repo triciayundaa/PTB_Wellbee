@@ -113,6 +113,10 @@ interface ApiService {
     @GET("api/fisik/weekly")
     suspend fun getWeeklySport(): Response<WeeklySportChartResponse>
 
+    // Ganti DataClassToken dengan Map kalau kamu malas bikin data class baru
+    @POST("api/fisik/fcm-token")
+    suspend fun updateFcmToken(@Body body: Map<String, String>): Response<Any>
+
     // ==========================
     // FISIK - TIDUR (SLEEP)
     // ==========================

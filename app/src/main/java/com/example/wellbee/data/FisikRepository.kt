@@ -1,6 +1,7 @@
 package com.example.wellbee.data
 
 import android.content.Context
+import android.util.Log
 import com.example.wellbee.data.local.AppDatabase
 import com.example.wellbee.data.local.SleepEntity
 import com.example.wellbee.data.local.SportEntity
@@ -378,6 +379,19 @@ class FisikRepository(private val context: Context) {
             Result.success("Berhasil update berat badan")
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    // Tambahkan ini di dalam class FisikRepository
+    suspend fun syncFcmToken(token: String) {
+        try {
+            val payload = mapOf("fcm_token" to token)
+            // Pastikan kamu punya endpoint ini di Retrofit API kamu
+            // Kalau belum ada, tambahkan di interface API: @PUT("fisik/fcm-token")
+            api.updateFcmToken(payload)
+            android.util.Log.d("FCM_REPO", "✅ Token terkirim ke server")
+        } catch (e: Exception) {
+            android.util.Log.e("FCM_REPO", "❌ Gagal kirim token", e)
         }
     }
 }

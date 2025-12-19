@@ -56,11 +56,29 @@ class MainActivity : ComponentActivity() {
 
                 // --- 🔹 LOGIKA NAVIGASI NOTIFIKASI 🔹 ---
                 LaunchedEffect(intent) {
+                    // 1. Punya Teman (Edukasi) - JANGAN DIHAPUS
                     val articleId = intent.getStringExtra("articleId")
                     if (!articleId.isNullOrBlank()) {
-                        // Navigasi ke rute global yang ada di NavGraph
                         navController.navigate("article_detail/$articleId?source=public")
                     }
+
+                    // 2. MODUL FISIK (UPDATE)
+                    val targetScreen = intent.getStringExtra("target_screen")
+
+                    if (targetScreen == "physical_health") {
+                        // KITA PAKAI RUTE JALAN TOL TADI
+                        navController.navigate("global_sport_screen") {
+                            launchSingleTop = true// Biar gak numpuk halamannya
+                        }
+                    }
+                }
+                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                    if (!task.isSuccessful) {
+                        println("❌ Gagal dapat token")
+                        return@addOnCompleteListener
+                    }
+                    val token = task.result
+                    println("🎫 TOKEN HP SAYA: $token") // <-- Cek Logcat bagian ini
                 }
 
                 NavGraph(navController = navController)

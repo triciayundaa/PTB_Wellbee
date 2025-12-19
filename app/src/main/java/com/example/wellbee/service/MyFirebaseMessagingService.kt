@@ -16,31 +16,39 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     // Dipanggil saat pesan FCM diterima
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        // Ambil data payload (ID Artikel) yang dikirim dari server/Firebase
-        val articleId = remoteMessage.data["articleId"]
+        // 1. Ambil Data Payload
+        val articleId = remoteMessage.data["articleId"]        // Punya Teman
+        val targetScreen = remoteMessage.data["target_screen"] // PUNYA KAMU (BARU)
 
-        // Ambil isi teks notifikasi
-        val title = remoteMessage.notification?.title ?: "Artikel Baru!"
-        val body = remoteMessage.notification?.body ?: "Cek informasi kesehatan terbaru di Wellbee."
+        // 2. Ambil Teks Notifikasi
+        val title = remoteMessage.notification?.title ?: "WellBee Info"
+        val body = remoteMessage.notification?.body ?: "Cek aktivitas terbaru kamu."
 
-        showNotification(title, body, articleId)
+        // 3. Tampilkan Notifikasi
+        showNotification(title, body, articleId, targetScreen)
     }
 
-    private fun showNotification(title: String, message: String, articleId: String?) {
+    private fun showNotification(title: String, message: String, articleId: String?, targetScreen: String?) {
         val channelId = "wellbee_notifications"
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Buat Notification Channel untuk Android 8.0 ke atas
+        // Buat Channel (Wajib untuk Android 8+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(channelId, "Wellbee Updates", NotificationManager.IMPORTANCE_HIGH)
             manager.createNotificationChannel(channel)
         }
 
-        // Setup Intent: Apa yang terjadi jika notifikasi diklik
+        // Setup Intent ke MainActivity
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            // Kirim articleId ke MainActivity agar bisa langsung membuka artikel tersebut
-            putExtra("articleId", articleId)
+
+            // LOGIKA GABUNGAN: Masukkan data sesuai yang dikirim backend
+            if (articleId != null) {
+                putExtra("articleId", articleId)
+            }
+            if (targetScreen != null) {
+                putExtra("target_screen", targetScreen) // INI KUNCI NAVIGASI KAMU
+            }
         }
 
         val pendingIntent = PendingIntent.getActivity(
@@ -48,9 +56,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Bangun notifikasi
+        // Bangun Notifikasi
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Gunakan icon aplikasi Anda
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // Pastikan icon ini ada
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

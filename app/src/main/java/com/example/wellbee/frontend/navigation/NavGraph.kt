@@ -1,7 +1,9 @@
 package com.example.wellbee.frontend.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +55,68 @@ fun NavGraph(navController: NavHostController) {
         // --- PROFILE SCREEN ---
         composable("profile") {
             ProfileScreen(navController = navController)
+        }
+
+        // --- RUTE KHUSUS NOTIFIKASI FISIK (FIXED: ANTI CRASH & TAMPILAN BENAR) ---
+        // --- RUTE KHUSUS NOTIFIKASI FISIK (SOLUSI FINAL) ---
+        // --- RUTE KHUSUS NOTIFIKASI FISIK (FIXED: WARNA & NAVIGASI) ---
+        composable("global_sport_screen") {
+            val localNavController = androidx.navigation.compose.rememberNavController()
+
+            androidx.compose.material3.Scaffold(
+                bottomBar = {
+                    com.example.wellbee.frontend.components.BottomNavigationBar(
+                        navController = navController
+                    )
+                }
+            ) { innerPadding ->
+                // PERBAIKAN WARNA DISINI 👇
+                androidx.compose.foundation.layout.Box(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(innerPadding)
+                        .fillMaxSize()
+                        // Pakai warna background yang sama dengan PhysicalHealthScreen asli
+                        .background(androidx.compose.ui.graphics.Color(0xFFF7F9FB))
+                ) {
+                    com.example.wellbee.frontend.navigation.PhysicalNavGraph(
+                        navController = localNavController
+                    )
+                }
+            }
+        }
+
+        // --- 🛡️ JARING PENGAMAN NAVBAR (ANTI CRASH) ---
+        // --- 🛡️ JARING PENGAMAN NAVBAR (ANTI CRASH) ---
+
+        // 1. TAMBAHAN BARU: Agar tombol HOME tidak crash
+        composable("home") {
+            LaunchedEffect(Unit) {
+                // Arahkan ke "main" (Dashboard Utama)
+                navController.navigate("main") {
+                    popUpTo("main") { inclusive = true }
+                }
+            }
+        }
+
+        // 2. Mental (Sudah ada)
+        composable("mental") {
+            LaunchedEffect(Unit) {
+                navController.navigate("main") { popUpTo("main") { inclusive = true } }
+            }
+        }
+
+        // 3. Education (Sudah ada)
+        composable("education") {
+            LaunchedEffect(Unit) {
+                navController.navigate("main") { popUpTo("main") { inclusive = true } }
+            }
+        }
+
+        // 4. Physical (Sudah ada)
+        composable("physical") {
+            LaunchedEffect(Unit) {
+                navController.navigate("global_sport_screen") { launchSingleTop = true }
+            }
         }
 
         // --- DETAIL ARTIKEL (GLOBAL ROUTE) ---

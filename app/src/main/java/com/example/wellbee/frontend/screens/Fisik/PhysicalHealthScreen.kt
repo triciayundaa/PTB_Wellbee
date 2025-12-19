@@ -28,7 +28,7 @@ import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
-import com.github.mikephil.charting.utils.ColorTemplate
+import com.google.firebase.messaging.FirebaseMessaging // ✅ 1. TAMBAHAN IMPORT
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -57,7 +57,29 @@ fun PhysicalDashboardContent() {
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 2. State untuk Data Grafik
+    // =================================================================
+    // ✅ 2. LOGIKA BARU: AUTO-SYNC TOKEN HP KE DATABASE
+    // =================================================================
+    LaunchedEffect(Unit) {
+        // Ambil Token HP dari Firebase
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            if (!token.isNullOrEmpty()) {
+                Log.d("FCM_TOKEN", "Token HP Ditemukan: $token")
+
+                // Kirim Token ke Backend Lewat Repository
+                scope.launch {
+                    // Pastikan fungsi syncFcmToken sudah ada di FisikRepository ya!
+                    repo.syncFcmToken(token)
+                }
+            }
+        }.addOnFailureListener {
+            Log.e("FCM_TOKEN", "Gagal ambil token: ${it.message}")
+        }
+    }
+    // =================================================================
+
+
+    // 3. State untuk Data Grafik
     // --- OLAHRAGA (MINGGUAN) ---
     var sportChartData by remember {
         mutableStateOf(
@@ -84,7 +106,7 @@ fun PhysicalDashboardContent() {
     var weightValues by remember { mutableStateOf<List<Double>>(emptyList()) }
     var weightLabels by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    // 3. LOGIKA REFRESH DATA (ON_RESUME)
+    // 4. LOGIKA REFRESH DATA GRAFIK (ON_RESUME)
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -95,7 +117,7 @@ fun PhysicalDashboardContent() {
                         // A. Load Grafik Olahraga (Mingguan)
                         sportChartData = repo.getWeeklySportChartData()
 
-                        // B. Load Grafik Tidur (Mingguan) 🔥 BARU
+                        // B. Load Grafik Tidur (Mingguan)
                         sleepChartData = repo.getWeeklySleepChartData()
 
                         // C. Load Grafik Berat Badan (7 Input Terakhir)
