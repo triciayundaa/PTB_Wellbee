@@ -25,4 +25,10 @@ interface ArtikelDao {
 
     @Query("DELETE FROM artikel")
     suspend fun clearAll()
+
+    @androidx.room.Transaction
+    suspend fun clearAndInsert(items: List<ArtikelEntity>) {
+        clearAll()
+        upsertAll(items)
+    }
 }

@@ -6,9 +6,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,15 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.data.model.PublicArticleDto
 import com.example.wellbee.frontend.components.ArticleCard
-import com.example.wellbee.frontend.components.SearchBar
 import com.example.wellbee.frontend.components.TagChip
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
@@ -39,13 +40,24 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Semua") }
 
-    // Load data awal
+    // Load data awal - Menggunakan Repository yang sudah diperbaiki (Clear cache & Sync)
     LaunchedEffect(Unit) {
         viewModel.loadCategories()
         viewModel.loadBookmarks()
         viewModel.loadArticles()
     }
 
+    /**
+     * LOGIKA SEARCH:
+     * Memantau perubahan searchQuery. Jika kosong, panggil loadArticles() untuk reset list
+     */
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isBlank()) {
+            viewModel.loadArticles()
+        }
+    }
+
+    // Single Source of Truth dari ViewModel
     val articles: List<PublicArticleDto> = viewModel.articles
     val isLoading = viewModel.isLoading
     val errorMessage = viewModel.errorMessage
@@ -53,7 +65,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     val categories = remember(backendCategories) { listOf("Semua") + backendCategories }
     val bookmarks = viewModel.bookmarks
 
-    // Filter berdasarkan kategori
+    // Filter berdasarkan kategori (Filtering ringan di sisi UI)
     val filteredByCategory = remember(articles, selectedCategory) {
         articles.filter { article ->
             selectedCategory == "Semua" ||
@@ -61,12 +73,9 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
         }
     }
 
-    // Filter berdasarkan searchQuery + sort terbaru
+    // Sortir terbaru berdasarkan tanggal backend
     val filteredArticlesSorted = remember(filteredByCategory, searchQuery) {
         filteredByCategory
-            .filter { article ->
-                searchQuery.isBlank() || article.judul.contains(searchQuery, ignoreCase = true)
-            }
             .sortedByDescending { parseBackendDateToMillis(it.tanggal) }
     }
 
@@ -104,12 +113,37 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
         ) {
-            SearchBar(
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(12.dp))
-                    .padding(4.dp),
-                onSearch = { query -> searchQuery = query }
+                    .background(Color.White, RoundedCornerShape(12.dp)),
+                placeholder = { Text("Cari artikel...") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = BluePrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = BluePrimary,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        if (searchQuery.isNotBlank()) {
+                            viewModel.searchArticles(searchQuery)
+                        }
+                    }
+                )
             )
         }
 
@@ -167,7 +201,10 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
 
                 // BUTTON BUAT ARTIKEL
                 OutlinedButton(
-                    onClick = { navController.navigate("create_article_meta") },
+                    onClick = {
+                        viewModel.clearDraft() // Membersihkan draf sebelum memulai baru
+                        navController.navigate("create_article_meta")
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -206,17 +243,16 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                             .padding(12.dp)
                     ) {
                         Text(
-                            text = errorMessage,
+                            text = errorMessage!!,
                             color = Color.Red,
                             fontSize = 13.sp
                         )
                     }
-
                     Spacer(Modifier.height(8.dp))
                 }
             }
 
-            if (filteredArticlesSorted.isEmpty()) {
+            if (filteredArticlesSorted.isEmpty() && !isLoading) {
                 item {
                     Box(
                         modifier = Modifier
@@ -225,7 +261,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Artikel tidak ditemukan." else "Belum ada artikel tersimpan.",
+                            text = if (searchQuery.isNotBlank()) "Artikel tidak ditemukan." else "Belum ada artikel tersedia.",
                             color = Color.Gray,
                             fontSize = 14.sp
                         )
@@ -239,11 +275,10 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                         ?.filter { it.isNotEmpty() }
                         ?: emptyList()
 
+                    // Mengecek apakah artikel ini ada di daftar bookmark
                     val existingBookmark = bookmarks.find { b ->
                         b.artikelId == article.id && b.jenis == article.jenis
                     }
-
-                    val isBookmarked = existingBookmark != null
 
                     ArticleCard(
                         articleId = article.id.toString(),
@@ -251,7 +286,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                         categories = artikelTags,
                         title = article.judul,
                         readTime = article.waktuBaca ?: "-",
-                        isBookmarked = isBookmarked,
+                        isBookmarked = existingBookmark != null,
                         onBookmarkClick = {
                             if (existingBookmark == null) {
                                 viewModel.addBookmark(article.id, article.jenis)
@@ -260,6 +295,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                             }
                         },
                         onReadMoreClick = {
+                            // MODIFIKASI: Navigasi menggunakan rute global yang terdaftar di NavGraph utama
                             navController.navigate("article_detail/${article.id}?source=public")
                         }
                     )
@@ -291,4 +327,3 @@ private fun parseBackendDateToMillis(raw: String?): Long {
     }
     return raw.hashCode().toLong()
 }
-

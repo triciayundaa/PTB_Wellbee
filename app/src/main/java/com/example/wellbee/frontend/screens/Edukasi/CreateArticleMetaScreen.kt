@@ -16,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -34,10 +33,7 @@ fun CreateArticleMetaScreen(
     viewModel: EducationViewModel, // Menggunakan Shared ViewModel dari NavGraph
     articleId: String? = null
 ) {
-    var category by remember { mutableStateOf("") }
-    var readTime by remember { mutableStateOf("") }
-    var tag by remember { mutableStateOf("") }
-
+    // MODIFIKASI: State lokal hanya untuk error dan UI transien (dropdown)
     var categoryError by remember { mutableStateOf<String?>(null) }
     var readTimeError by remember { mutableStateOf<String?>(null) }
     var tagError by remember { mutableStateOf<String?>(null) }
@@ -49,7 +45,6 @@ fun CreateArticleMetaScreen(
         "Kesehatan Mental", "Kesehatan Fisik", "Tips Sehat", "Nutrisi", "Produktivitas"
     )
 
-    // ===== LOGIKA LOAD DATA LAMA (MODE EDIT) =====
     val myArticles = viewModel.myArticles
 
     LaunchedEffect(Unit) {
@@ -59,15 +54,19 @@ fun CreateArticleMetaScreen(
         }
     }
 
-    // Mengisi state input saat data artikel ditemukan untuk diedit
-    LaunchedEffect(myArticles) {
+    // Mengisi state ViewModel saat data artikel ditemukan untuk diedit
+    LaunchedEffect(myArticles, articleId) {
         if (articleId != null) {
             val idInt = articleId.toIntOrNull()
             val article = myArticles.find { it.id == idInt }
             article?.let {
-                category = it.kategori ?: ""
-                tag = it.tag ?: ""
-                readTime = it.waktuBaca?.replace(Regex("[^0-9]"), "") ?: ""
+                // PENTING: Pengecekan .isEmpty() ini yang mencegah data
+                // yang sudah Anda ketik terhapus saat menekan tombol BACK.
+                if (viewModel.draftCategory.isEmpty()) viewModel.draftCategory = it.kategori ?: ""
+                if (viewModel.draftTag.isEmpty()) viewModel.draftTag = it.tag ?: ""
+                if (viewModel.draftReadTime.isEmpty()) {
+                    viewModel.draftReadTime = it.waktuBaca?.replace(Regex("[^0-9]"), "") ?: ""
+                }
             }
         }
     }
@@ -112,7 +111,8 @@ fun CreateArticleMetaScreen(
                         onExpandedChange = { expanded = !expanded }
                     ) {
                         TextField(
-                            value = category,
+                            // MODIFIKASI: value diambil dari ViewModel
+                            value = viewModel.draftCategory,
                             onValueChange = {},
                             readOnly = true,
                             placeholder = { Text("Pilih kategori", color = Color.Gray) },
@@ -141,7 +141,8 @@ fun CreateArticleMetaScreen(
                                 DropdownMenuItem(
                                     text = { Text(text = option, color = Color.Black) },
                                     onClick = {
-                                        category = option
+                                        // MODIFIKASI: simpan ke ViewModel
+                                        viewModel.draftCategory = option
                                         expanded = false
                                         categoryError = null
                                     }
@@ -157,10 +158,12 @@ fun CreateArticleMetaScreen(
                     Text("Estimasi Waktu Baca", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     TextField(
-                        value = readTime,
+                        // MODIFIKASI: value diambil dari ViewModel
+                        value = viewModel.draftReadTime,
                         onValueChange = { input ->
                             val digitsOnly = input.filter { it.isDigit() }
-                            readTime = digitsOnly
+                            // MODIFIKASI: simpan ke ViewModel
+                            viewModel.draftReadTime = digitsOnly
                             readTimeError = null
                         },
                         placeholder = { Text("0", color = Color.Gray) },
@@ -189,8 +192,13 @@ fun CreateArticleMetaScreen(
                     Text("Tag Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     TextField(
-                        value = tag,
-                        onValueChange = { tag = it; tagError = null },
+                        // MODIFIKASI: value diambil dari ViewModel
+                        value = viewModel.draftTag,
+                        onValueChange = {
+                            // MODIFIKASI: simpan ke ViewModel
+                            viewModel.draftTag = it
+                            tagError = null
+                        },
                         placeholder = { Text("Contoh: Nutrisi", color = Color.Gray) },
                         singleLine = true,
                         textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
@@ -211,26 +219,24 @@ fun CreateArticleMetaScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            /** ================= BUTTON LANJUTKAN ================= **/
+            /** ================= BUTTON LANJUTKAN (DI METASCREEN) ================= **/
             Button(
                 onClick = {
                     var valid = true
-                    if (category.isBlank()) { categoryError = "Kategori harus diisi"; valid = false }
-                    if (readTime.isBlank()) { readTimeError = "Waktu baca harus diisi"; valid = false }
-                    if (tag.isBlank()) { tagError = "Tag harus diisi"; valid = false }
+                    // Validasi tetap menggunakan data dari ViewModel
+                    if (viewModel.draftCategory.isBlank()) { categoryError = "Kategori harus diisi"; valid = false }
+                    if (viewModel.draftReadTime.isBlank()) { readTimeError = "Waktu baca harus diisi"; valid = false }
+                    if (viewModel.draftTag.isBlank()) { tagError = "Tag harus diisi"; valid = false }
 
                     if (valid) {
-                        val catArg = Uri.encode(category.trim())
-                        val readArg = Uri.encode("${readTime.trim()} menit")
-                        val tagArg = Uri.encode(tag.trim())
-
-                        val baseRoute = "create_article_content/$catArg/$readArg/$tagArg"
-                        val fullRoute = if (articleId != null) {
-                            "$baseRoute?articleId=${Uri.encode(articleId)}"
+                        // Kita tidak perlu lagi Uri.encode untuk kategori/tag di sini
+                        // karena data sudah aman tersimpan di sharedViewModel
+                        val route = if (articleId != null) {
+                            "create_article_content?articleId=$articleId"
                         } else {
-                            baseRoute
+                            "create_article_content"
                         }
-                        navController.navigate(fullRoute)
+                        navController.navigate(route)
                     }
                 },
                 modifier = Modifier

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
+import com.example.wellbee.data.RetrofitClient
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.EducationTopBarWithBack
 import com.example.wellbee.ui.theme.BluePrimary
@@ -52,13 +53,9 @@ fun CreateArticleContentScreen(
 ) {
     val context = LocalContext.current
 
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
-
+    // MODIFIKASI: State lokal hanya untuk error dan UI transien
     var titleError by remember { mutableStateOf<String?>(null) }
     var contentError by remember { mutableStateOf<String?>(null) }
-
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
     // State untuk Bottom Sheet
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -66,7 +63,6 @@ fun CreateArticleContentScreen(
 
     /** ================= IMAGE LAUNCHERS ================= */
 
-    // 1. Launcher untuk Kamera
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
@@ -77,18 +73,18 @@ fun CreateArticleContentScreen(
                 "Wellbee_${System.currentTimeMillis()}",
                 null
             )
-            selectedImageUri = Uri.parse(path)
+            // MODIFIKASI: Simpan ke ViewModel
+            viewModel.draftImageUri = Uri.parse(path)
         }
     }
 
-    // 2. Launcher untuk Galeri
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        if (uri != null) selectedImageUri = uri
+        // MODIFIKASI: Simpan ke ViewModel
+        if (uri != null) viewModel.draftImageUri = uri
     }
 
-    // 3. Launcher untuk meminta izin kamera
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -108,15 +104,29 @@ fun CreateArticleContentScreen(
         }
     }
 
-    LaunchedEffect(myArticles) {
+    LaunchedEffect(myArticles, articleId) {
         if (articleId != null) {
             val idInt = articleId.toIntOrNull()
             val article = myArticles.find { it.id == idInt }
             article?.let {
-                if (title.isEmpty()) title = it.judul
-                if (content.isEmpty()) content = it.isi
-                if (selectedImageUri == null && !it.gambarUrl.isNullOrEmpty()) {
-                    selectedImageUri = Uri.parse(it.gambarUrl)
+                // Hanya isi jika draftTitle masih kosong (mencegah overwrite saat Back)
+                if (viewModel.draftTitle.isEmpty()) {
+                    viewModel.draftTitle = it.judul
+                }
+                // Hanya isi jika draftContent masih kosong (mencegah overwrite saat Back)
+                if (viewModel.draftContent.isEmpty()) {
+                    viewModel.draftContent = it.isi
+                }
+                // Hanya isi jika draftImageUri masih null
+                if (viewModel.draftImageUri == null && !it.gambarUrl.isNullOrEmpty()) {
+                    val fullUrl = if (it.gambarUrl!!.startsWith("http")) {
+                        it.gambarUrl
+                    } else {
+                        val base = RetrofitClient.BASE_URL.removeSuffix("/")
+                        val path = if (it.gambarUrl!!.startsWith("/")) it.gambarUrl else "/${it.gambarUrl}"
+                        "$base$path"
+                    }
+                    viewModel.draftImageUri = Uri.parse(fullUrl)
                 }
             }
         }
@@ -162,8 +172,11 @@ fun CreateArticleContentScreen(
                     Text("Judul Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it; titleError = null },
+                        value = viewModel.draftTitle,
+                        onValueChange = {
+                            viewModel.draftTitle = it
+                            titleError = null
+                        },
                         placeholder = { Text("Tulis judul menarik...") },
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = TextStyle(color = Color.Black),
@@ -190,9 +203,9 @@ fun CreateArticleContentScreen(
                             .clickable { showBottomSheet = true },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (selectedImageUri != null) {
+                        if (viewModel.draftImageUri != null) {
                             Image(
-                                painter = rememberAsyncImagePainter(selectedImageUri),
+                                painter = rememberAsyncImagePainter(viewModel.draftImageUri),
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -211,8 +224,11 @@ fun CreateArticleContentScreen(
                     Text("Isi Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = content,
-                        onValueChange = { content = it; contentError = null },
+                        value = viewModel.draftContent,
+                        onValueChange = {
+                            viewModel.draftContent = it
+                            contentError = null
+                        },
                         placeholder = { Text("Tuliskan detail informasi di sini...") },
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = TextStyle(color = Color.Black),
@@ -230,27 +246,19 @@ fun CreateArticleContentScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            /** BUTTON PREVIEW **/
+            /** ================= BUTTON PREVIEW ================= **/
             Button(
                 onClick = {
-                    if (title.isBlank()) titleError = "Judul wajib diisi"
-                    if (content.isBlank()) contentError = "Isi artikel wajib diisi"
+                    if (viewModel.draftTitle.isBlank()) titleError = "Judul wajib diisi"
+                    if (viewModel.draftContent.isBlank()) contentError = "Isi artikel wajib diisi"
 
-                    if (title.isNotBlank() && content.isNotBlank()) {
-                        val baseRoute = "create_article_preview/" +
-                                "${Uri.encode(category)}/" +
-                                "${Uri.encode(readTime)}/" +
-                                "${Uri.encode(tag)}/" +
-                                "${Uri.encode(title)}/" +
-                                "${Uri.encode(content)}"
-
-                        val imageArg = Uri.encode(selectedImageUri?.toString() ?: "")
-                        val fullRoute = if (articleId != null) {
-                            "$baseRoute?imageUri=$imageArg&articleId=$articleId"
+                    if (viewModel.draftTitle.isNotBlank() && viewModel.draftContent.isNotBlank()) {
+                        val route = if (articleId != null) {
+                            "create_article_preview?articleId=$articleId"
                         } else {
-                            "$baseRoute?imageUri=$imageArg"
+                            "create_article_preview"
                         }
-                        navController.navigate(fullRoute)
+                        navController.navigate(route)
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -267,18 +275,18 @@ fun CreateArticleContentScreen(
         }
     }
 
-    /** ================= MODAL BOTTOM SHEET (KAMERA / GALERI) ================= */
+    /** ================= MODAL BOTTOM SHEET ================= */
     if (showBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
             sheetState = sheetState,
-            containerColor = Color.White, // Memastikan background sheet putih
+            containerColor = Color.White,
             dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White) // Penegasan background putih
+                    .background(Color.White)
                     .padding(bottom = 32.dp, start = 24.dp, end = 24.dp, top = 8.dp)
             ) {
                 Text(
@@ -289,13 +297,12 @@ fun CreateArticleContentScreen(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                // Opsi Kamera
                 ListItem(
                     headlineContent = {
                         Text("Ambil Foto dari Kamera", color = Color.Black, fontWeight = FontWeight.Medium)
                     },
                     leadingContent = { Icon(Icons.Default.CameraAlt, null, tint = BluePrimary) },
-                    colors = ListItemDefaults.colors(containerColor = Color.White), // 🔹 Perbaikan warna di sini
+                    colors = ListItemDefaults.colors(containerColor = Color.White),
                     modifier = Modifier.clickable {
                         showBottomSheet = false
                         val permissionCheckResult = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
@@ -307,13 +314,12 @@ fun CreateArticleContentScreen(
                     }
                 )
 
-                // Opsi Galeri
                 ListItem(
                     headlineContent = {
                         Text("Pilih dari Galeri", color = Color.Black, fontWeight = FontWeight.Medium)
                     },
                     leadingContent = { Icon(Icons.Default.Image, null, tint = BluePrimary) },
-                    colors = ListItemDefaults.colors(containerColor = Color.White), // 🔹 Perbaikan warna di sini
+                    colors = ListItemDefaults.colors(containerColor = Color.White),
                     modifier = Modifier.clickable {
                         showBottomSheet = false
                         galleryLauncher.launch("image/*")

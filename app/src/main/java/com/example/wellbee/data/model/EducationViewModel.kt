@@ -14,6 +14,26 @@ class EducationViewModel(context: Context) : ViewModel() {
 
     private val repo = EducationRepository(context)
 
+    // ==========================================
+    // 🔹 DRAFT STATE
+    // Mendukung flow Meta -> Content -> Preview agar data tidak hilang
+    // ==========================================
+    var draftCategory by mutableStateOf("")
+    var draftReadTime by mutableStateOf("")
+    var draftTag by mutableStateOf("")
+    var draftTitle by mutableStateOf("")
+    var draftContent by mutableStateOf("")
+    var draftImageUri by mutableStateOf<Uri?>(null)
+
+    fun clearDraft() {
+        draftCategory = ""
+        draftReadTime = ""
+        draftTag = ""
+        draftTitle = ""
+        draftContent = ""
+        draftImageUri = null
+    }
+
     // ==========================
     // ARTIKEL PUBLIK
     // ==========================
@@ -52,10 +72,15 @@ class EducationViewModel(context: Context) : ViewModel() {
 
     fun searchArticles(query: String) {
         viewModelScope.launch {
+            if (query.isBlank()) {
+                loadArticles()
+                return@launch
+            }
+
             isLoading = true
             errorMessage = null
             try {
-                articles = repo.getPublicArticles(query.takeIf { it.isNotBlank() })
+                articles = repo.getPublicArticles(query)
                     .sortedByDescending { it.tanggal }
             } catch (e: IOException) {
                 errorMessage = "Pencarian gagal: Periksa koneksi internet Anda."
@@ -72,7 +97,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 categories = repo.getCategories()
             } catch (e: Exception) {
-                // Untuk kategori, kita biarkan diam (silent error) agar tidak mengganggu UI utama
                 e.printStackTrace()
             }
         }
@@ -106,9 +130,8 @@ class EducationViewModel(context: Context) : ViewModel() {
     }
 
     // ==========================
-    // UPLOAD ARTIKEL (BACKEND)
+    // UPLOAD ARTIKEL
     // ==========================
-
     fun uploadArticleWithImage(
         imageUri: Uri?,
         kategori: String,
@@ -122,6 +145,7 @@ class EducationViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             isLoading = true
             uploadStatus = null
+            errorMessage = null
             try {
                 val imageUrl = when {
                     imageUri == null -> null
@@ -141,19 +165,20 @@ class EducationViewModel(context: Context) : ViewModel() {
 
                 if (success) {
                     uploadStatus = "SUCCESS"
-                    // Refresh data setelah upload
+                    clearDraft()
                     loadMyArticles()
                     loadArticles()
                     onSuccess()
                 } else {
                     uploadStatus = "FAILED"
+                    errorMessage = "Gagal menyimpan artikel ke server."
                 }
             } catch (e: IOException) {
                 uploadStatus = "ERROR_CONNECTION"
                 errorMessage = "Gagal upload: Koneksi internet terputus."
             } catch (e: Exception) {
                 uploadStatus = "ERROR"
-                errorMessage = e.message
+                errorMessage = e.message ?: "Terjadi kesalahan tidak terduga."
             } finally {
                 isLoading = false
             }
@@ -173,14 +198,17 @@ class EducationViewModel(context: Context) : ViewModel() {
     var bookmarkError by mutableStateOf<String?>(null)
         private set
 
+    // 🔹 PERBAIKAN: Struktur fungsi dirapikan agar sinkronisasi lokal-server benar
     fun loadBookmarks() {
         viewModelScope.launch {
             isLoadingBookmarks = true
             bookmarkError = null
             try {
+                // Fungsi repo.getBookmarks() sudah menangani clear cache & sync
                 bookmarks = repo.getBookmarks()
             } catch (e: IOException) {
-                bookmarkError = "Koneksi terputus. Gagal memuat bookmark."
+                bookmarkError = "Koneksi terputus. Mengambil data lokal."
+                // Data tetap terupdate dari Room melalui catch block di repo
             } catch (e: Exception) {
                 bookmarkError = e.message ?: "Gagal memuat bookmark"
             } finally {
@@ -194,6 +222,7 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 bookmarkError = null
                 repo.addBookmark(artikelId, jenis)
+                // Refresh data
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
                 bookmarkError = "Gagal menambah bookmark: Cek internet Anda."
@@ -206,6 +235,7 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 bookmarkError = null
                 repo.deleteBookmark(bookmarkId)
+                // Refresh data
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
                 bookmarkError = "Gagal menghapus bookmark."
@@ -218,6 +248,7 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 bookmarkError = null
                 repo.markBookmarkAsRead(bookmarkId)
+                // Refresh data
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
                 bookmarkError = "Gagal update status baca."
@@ -226,7 +257,7 @@ class EducationViewModel(context: Context) : ViewModel() {
     }
 
     // ==========================
-    // ARTIKEL SAYA (MY ARTICLES)
+    // ARTIKEL SAYA
     // ==========================
 
     var myArticles by mutableStateOf<List<MyArticleDto>>(emptyList())
@@ -290,6 +321,9 @@ class EducationViewModel(context: Context) : ViewModel() {
         }
     }
 
+    // ==========================
+    // UPDATE ARTIKEL SAYA
+    // ==========================
     fun updateMyArticle(
         id: Int,
         kategori: String,
@@ -304,6 +338,7 @@ class EducationViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             isLoadingMyArticles = true
             myArticleError = null
+            errorMessage = null
             try {
                 repo.updateMyArticle(
                     id = id,
@@ -316,15 +351,18 @@ class EducationViewModel(context: Context) : ViewModel() {
                 )
 
                 myArticles = repo.getMyArticles().sortedByDescending { it.id }
+                clearDraft()
                 loadArticles()
                 onSuccess()
             } catch (e: IOException) {
                 val msg = "Gagal update: Koneksi internet terputus."
                 myArticleError = msg
+                errorMessage = msg
                 onError(msg)
             } catch (e: Exception) {
                 val msg = e.message ?: "Gagal mengupdate artikel"
                 myArticleError = msg
+                errorMessage = msg
                 onError(msg)
             } finally {
                 isLoadingMyArticles = false

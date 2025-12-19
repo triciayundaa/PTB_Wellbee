@@ -19,18 +19,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.data.model.BookmarkDto
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.BookmarkArticleCard
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
-import com.example.wellbee.ui.theme.WellbeeTheme
 import kotlinx.coroutines.launch
 
 @Composable
@@ -46,6 +43,7 @@ fun BookmarkScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // Load data awal - Menggunakan repository yang sudah diperbaiki (Clear then Sync)
     LaunchedEffect(Unit) {
         viewModel.loadBookmarks()
     }
@@ -54,7 +52,7 @@ fun BookmarkScreen(
         if (!error.isNullOrBlank()) {
             scope.launch {
                 snackbarHostState.showSnackbar(
-                    message = error,
+                    message = error!!,
                     withDismissAction = true,
                     duration = SnackbarDuration.Short
                 )
@@ -66,7 +64,8 @@ fun BookmarkScreen(
     var showSuccessDialog by remember { mutableStateOf(false) }
     var bookmarkPendingDelete by remember { mutableStateOf<BookmarkDto?>(null) }
 
-    val unreadCount = bookmarks.count { it.sudahDibaca == 0 }
+    // Hitung unread count secara reaktif dari state bookmarks
+    val unreadCount = remember(bookmarks) { bookmarks.count { it.sudahDibaca == 0 } }
 
     Scaffold(
         containerColor = GrayBackground,
@@ -84,13 +83,29 @@ fun BookmarkScreen(
                 unreadCount = unreadCount
             )
 
+            // --- PERBAIKAN TAMPILAN LOADING ---
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = BluePrimary)
+                // Menggunakan Box agar loading berada di tengah layar konten
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(
+                            color = BluePrimary,
+                            strokeWidth = 4.dp
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = "Memuat data...",
+                            color = BluePrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-            }
-
-            if (!isLoading && bookmarks.isEmpty()) {
+            } else if (bookmarks.isEmpty()) {
+                // Tampilan jika data kosong
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -102,9 +117,11 @@ fun BookmarkScreen(
                     )
                 }
             } else {
+                // Tampilan jika data berhasil dimuat
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp)
+                    contentPadding = PaddingValues(16.dp), // Beri padding agar lebih rapi
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
                         items = bookmarks,
@@ -122,7 +139,7 @@ fun BookmarkScreen(
                             },
                             onReadMoreClick = {
                                 viewModel.markBookmarkAsRead(item.bookmarkId)
-                                navController?.navigate("article_detail/${item.artikelId}")
+                                navController?.navigate("article_detail/${item.artikelId}?source=public")
                             }
                         )
                     }
@@ -130,7 +147,6 @@ fun BookmarkScreen(
             }
         }
 
-        // Dialog handling tetap sama
         if (showConfirmDialog && bookmarkPendingDelete != null) {
             ConfirmDeleteDialog(
                 onCancel = {
@@ -154,7 +170,7 @@ fun BookmarkScreen(
     }
 }
 
-/* ─── TOP BAR (REFINED) ─── */
+/* ─── TOP BAR ─── */
 
 @Composable
 private fun BookmarkTopBar(navController: NavHostController?) {
@@ -255,11 +271,20 @@ fun ConfirmDeleteDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
                 Text("Yakin ingin menghapus artikel dari daftar simpan?", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f), textAlign = TextAlign.Center)
                 Spacer(Modifier.height(24.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, Color.White), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) {
-                        Text("Batal")
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.weight(1f),
+                        border = BorderStroke(1.dp, Color.White),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ) {
+                        Text("Batal", color = Color.White)
                     }
-                    Button(onClick = onConfirm, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF355A84))) {
-                        Text("Iya, Hapus", fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF355A84))
+                    ) {
+                        Text("Iya, Hapus", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -280,8 +305,12 @@ fun DeleteSuccessDialog(onDismiss: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
                 Text("Berhasil Dihapus!", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF355A84)), modifier = Modifier.fillMaxWidth()) {
-                    Text("OK")
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF355A84)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("OK", color = Color.White)
                 }
             }
         }

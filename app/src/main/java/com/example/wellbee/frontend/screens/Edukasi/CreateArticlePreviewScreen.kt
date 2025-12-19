@@ -48,13 +48,21 @@ fun CreateArticlePreviewScreen(
     articleId: String? = null
 ) {
     val context = LocalContext.current
-    val imageUriParsed = remember(imageUri) {
-        imageUri?.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
-    }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Mengambil state dari ViewModel
     val isLoading = viewModel.isLoading
-    val serverError = viewModel.errorMessage // Error dari sinkronisasi internet di ViewModel
+    val serverError = viewModel.errorMessage
+
+    // MODIFIKASI: Gunakan LaunchedEffect untuk memantau error dari ViewModel secara real-time
+    LaunchedEffect(serverError) {
+        serverError?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Long
+            )
+        }
+    }
 
     // Fungsi navigasi sukses
     fun navigateToMyArticles() {
@@ -64,17 +72,16 @@ fun CreateArticlePreviewScreen(
         }
     }
 
-    // Fungsi Gabungan Aksi (Upload atau Update)
+    // Fungsi handleAksi (Upload atau Update)
     fun handleAksi(status: String) {
         if (articleId == null) {
-            // MODE BUAT BARU
             viewModel.uploadArticleWithImage(
-                imageUri = imageUriParsed,
-                kategori = category,
-                readTime = readTime,
-                tag = tag,
-                title = title,
-                content = content,
+                imageUri = viewModel.draftImageUri,
+                kategori = viewModel.draftCategory.ifBlank { category },
+                readTime = if (viewModel.draftReadTime.isNotBlank()) "${viewModel.draftReadTime} menit" else readTime,
+                tag = viewModel.draftTag.ifBlank { tag },
+                title = viewModel.draftTitle.ifBlank { title },
+                content = viewModel.draftContent.ifBlank { content },
                 status = status,
                 onSuccess = {
                     Toast.makeText(context, "Berhasil menyimpan artikel!", Toast.LENGTH_SHORT).show()
@@ -82,22 +89,21 @@ fun CreateArticlePreviewScreen(
                 }
             )
         } else {
-            // MODE EDIT
             val id = articleId.toIntOrNull() ?: return
             viewModel.updateMyArticle(
                 id = id,
-                kategori = category,
-                readTime = readTime,
-                tag = tag,
-                title = title,
-                content = content,
-                imageUri = imageUriParsed,
+                kategori = viewModel.draftCategory.ifBlank { category },
+                readTime = if (viewModel.draftReadTime.isNotBlank()) "${viewModel.draftReadTime} menit" else readTime,
+                tag = viewModel.draftTag.ifBlank { tag },
+                title = viewModel.draftTitle.ifBlank { title },
+                content = viewModel.draftContent.ifBlank { content },
+                imageUri = viewModel.draftImageUri,
                 onSuccess = {
                     viewModel.changeMyArticleStatus(id, status)
                     Toast.makeText(context, "Berhasil memperbarui artikel!", Toast.LENGTH_SHORT).show()
                     navigateToMyArticles()
                 },
-                onError = { /* Error ditangani via serverError Snackbar */ }
+                onError = { /* Error ditangani otomatis oleh LaunchedEffect serverError */ }
             )
         }
     }
@@ -110,19 +116,21 @@ fun CreateArticlePreviewScreen(
             )
         },
         containerColor = GrayBackground,
+        // MODIFIKASI: Gunakan SnackbarHostState agar pesan error muncul otomatis saat koneksi gagal
         snackbarHost = {
-            // Menampilkan pesan error jika internet terputus atau gagal server
-            serverError?.let { msg ->
+            SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     modifier = Modifier.padding(16.dp),
-                    containerColor = Color(0xFFCC3300),
+                    containerColor = Color(0xFFCC3300), // Warna merah peringatan
                     contentColor = Color.White,
                     action = {
-                        TextButton(onClick = { viewModel.loadArticles() }) { // Trigger dummy load untuk clear error
-                            Text("MENGERTI", color = Color.White, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { data.dismiss() }) {
+                            Text("TUTUP", color = Color.White)
                         }
                     }
-                ) { Text(msg) }
+                ) {
+                    Text(data.visuals.message)
+                }
             }
         }
     ) { padding ->
@@ -144,8 +152,8 @@ fun CreateArticlePreviewScreen(
             ) {
                 Column(Modifier.padding(bottom = 24.dp)) {
                     Image(
-                        painter = if (imageUriParsed != null)
-                            rememberAsyncImagePainter(imageUriParsed)
+                        painter = if (viewModel.draftImageUri != null)
+                            rememberAsyncImagePainter(viewModel.draftImageUri)
                         else
                             painterResource(R.drawable.ic_launcher_foreground),
                         contentDescription = null,
@@ -158,7 +166,7 @@ fun CreateArticlePreviewScreen(
 
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                         Text(
-                            text = "${category.uppercase()} • $readTime",
+                            text = "${(viewModel.draftCategory.ifBlank { category }).uppercase()} • ${if (viewModel.draftReadTime.isNotBlank()) "${viewModel.draftReadTime} mnt" else readTime}",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = BluePrimary,
@@ -168,7 +176,7 @@ fun CreateArticlePreviewScreen(
                         Spacer(Modifier.height(8.dp))
 
                         Text(
-                            text = title,
+                            text = viewModel.draftTitle.ifBlank { title },
                             fontSize = 24.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1B3B6B),
@@ -177,14 +185,15 @@ fun CreateArticlePreviewScreen(
 
                         Spacer(Modifier.height(12.dp))
 
-                        if (tag.isNotBlank()) {
+                        val currentTag = viewModel.draftTag.ifBlank { tag }
+                        if (currentTag.isNotBlank()) {
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
                                 color = BluePrimary.copy(alpha = 0.1f),
                                 border = BorderStroke(1.dp, BluePrimary.copy(alpha = 0.2f))
                             ) {
                                 Text(
-                                    "#$tag",
+                                    "#$currentTag",
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                     color = BluePrimary,
                                     fontSize = 12.sp,
@@ -198,7 +207,7 @@ fun CreateArticlePreviewScreen(
                         Spacer(Modifier.height(20.dp))
 
                         Text(
-                            text = content,
+                            text = viewModel.draftContent.ifBlank { content },
                             fontSize = 15.sp,
                             color = Color(0xFF444444),
                             lineHeight = 24.sp,
@@ -220,7 +229,6 @@ fun CreateArticlePreviewScreen(
                         .padding(24.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // TOMBOL SIMPAN DRAFT
                     OutlinedButton(
                         onClick = { handleAksi("draft") },
                         modifier = Modifier.weight(1f).height(50.dp),
@@ -233,7 +241,6 @@ fun CreateArticlePreviewScreen(
                         Text("Draft", fontWeight = FontWeight.Bold)
                     }
 
-                    // TOMBOL UPLOAD
                     Button(
                         onClick = { handleAksi("uploaded") },
                         modifier = Modifier.weight(1f).height(50.dp),

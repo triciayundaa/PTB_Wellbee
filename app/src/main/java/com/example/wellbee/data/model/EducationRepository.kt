@@ -12,12 +12,26 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class EducationRepository(private val context: Context) {
 
     private val api = RetrofitClient.getInstance(context)
-    private val baseUrl = "http://10.85.137.27:3000"
+
+    // 🔹 MENGGUNAKAN BASE_URL DARI PUSAT (RetrofitClient)
+    private val baseServerUrl = RetrofitClient.BASE_URL.removeSuffix("/")
 
     private val db = AppDatabase.getInstance(context)
     private val artikelDao = db.artikelDao()
     private val bookmarkDao = db.bookmarkDao()
     private val searchHistoryDao = db.searchHistoryDao()
+
+    /**
+     * Fungsi pembantu untuk memastikan URL gambar selalu lengkap (Full URL)
+     */
+    private fun fixImageUrl(url: String?): String? {
+        if (url == null) return null
+        return when {
+            url.startsWith("http") -> url
+            url.startsWith("/") -> "$baseServerUrl$url"
+            else -> "$baseServerUrl/$url"
+        }
+    }
 
     // ==========================
     // ARTIKEL PUBLIK
@@ -29,17 +43,10 @@ class EducationRepository(private val context: Context) {
             val response = api.getPublicArticles()
 
             val fixed = response.articles.map { article ->
-                val fixedUrl = article.gambarUrl?.let { url ->
-                    when {
-                        url.startsWith("http") -> url
-                        url.startsWith("/") -> baseUrl + url
-                        else -> "$baseUrl/$url"
-                    }
-                }
-                article.copy(gambarUrl = fixedUrl)
+                article.copy(gambarUrl = fixImageUrl(article.gambarUrl))
             }
 
-            artikelDao.upsertAll(fixed.map { it.toEntity() })
+            artikelDao.clearAndInsert(fixed.map { it.toEntity() })
 
             val result = if (keyword.isNotBlank()) {
                 fixed.filter {
@@ -81,40 +88,42 @@ class EducationRepository(private val context: Context) {
 
     suspend fun getBookmarks(): List<BookmarkDto> {
         return try {
+            // 🔹 Sinkronisasi data yang sempat dihapus saat offline
             syncPendingDeletes()
+
             val response = api.getBookmarks()
 
             val fixed = response.bookmarks.map { bookmark ->
-                val fixedUrl = bookmark.gambarUrl?.let { url ->
-                    when {
-                        url.startsWith("http") -> url
-                        url.startsWith("/") -> baseUrl + url
-                        else -> "$baseUrl/$url"
-                    }
-                }
-                bookmark.copy(gambarUrl = fixedUrl)
+                bookmark.copy(gambarUrl = fixImageUrl(bookmark.gambarUrl))
             }
 
-            val pendingIds = bookmarkDao.getPendingDeleteIds().toSet()
-            val filteredForUpsert = fixed.filterNot { it.bookmarkId in pendingIds }
+            // 🔹 PERBAIKAN: Bersihkan database lokal agar sinkron dengan data server terbaru
+            bookmarkDao.deleteAll()
 
-            bookmarkDao.upsertAll(filteredForUpsert.map { it.toEntity(isDeleted = 0) })
+            // Simpan data baru dengan status isDeleted = 0
+            bookmarkDao.upsertAll(fixed.map { it.toEntity(isDeleted = 0) })
+
+            // Kembalikan data dari lokal yang sudah bersih
             bookmarkDao.getAllOnce().map { it.toDto() }
         } catch (e: Exception) {
+            // Jika offline, tampilkan data lokal yang tersedia (yang isDeleted = 0)
             bookmarkDao.getAllOnce().map { it.toDto() }
         }
     }
 
     suspend fun addBookmark(artikelId: Int, jenis: String): String {
         val res = api.addBookmark(AddBookmarkRequest(artikelId, jenis))
+        // Langsung sinkronkan ulang setelah menambah
         getBookmarks()
         return res.message
     }
 
     suspend fun deleteBookmark(bookmarkId: Int): String {
+        // Soft delete lokal dulu agar UI langsung update (Offline-first)
         bookmarkDao.softDeleteById(bookmarkId)
         return try {
             val res = api.deleteBookmark(bookmarkId)
+            // Jika sukses di server, hapus permanen di lokal
             bookmarkDao.deleteById(bookmarkId)
             res.message
         } catch (e: Exception) {
@@ -189,14 +198,7 @@ class EducationRepository(private val context: Context) {
     suspend fun getMyArticles(): List<MyArticleDto> {
         val response = api.getMyArticles()
         return response.articles.map { article ->
-            val fixedUrl = article.gambarUrl?.let { url ->
-                when {
-                    url.startsWith("http") -> url
-                    url.startsWith("/") -> baseUrl + url
-                    else -> "$baseUrl/$url"
-                }
-            }
-            article.copy(gambarUrl = fixedUrl)
+            article.copy(gambarUrl = fixImageUrl(article.gambarUrl))
         }
     }
 
@@ -259,7 +261,8 @@ class EducationRepository(private val context: Context) {
             gambar = gambarPart
         )
 
-        return response.data
+        val result = response.data
+        return result.copy(gambarUrl = fixImageUrl(result.gambarUrl))
     }
 
     // ==========================

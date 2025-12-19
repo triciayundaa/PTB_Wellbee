@@ -1,17 +1,31 @@
 package com.example.wellbee.frontend.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.wellbee.data.SessionManager
+import com.example.wellbee.data.model.EducationViewModel
+import com.example.wellbee.data.model.PublicArticleDto
+import com.example.wellbee.data.model.MyArticleDto
 import com.example.wellbee.frontend.screens.WelcomeScreen
 import com.example.wellbee.frontend.screens.RegisterScreen
 import com.example.wellbee.frontend.screens.LoginScreen
 import com.example.wellbee.frontend.screens.ResetPasswordScreen
 import com.example.wellbee.frontend.screens.MainScreen
 import com.example.wellbee.frontend.screens.ProfileScreen
+import com.example.wellbee.frontend.screens.Edukasi.ArticleDetailScreen
+import com.example.wellbee.ui.theme.BluePrimary
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -37,9 +51,71 @@ fun NavGraph(navController: NavHostController) {
         }
 
         // --- PROFILE SCREEN ---
-        // Rute ini harus berada di level ini agar bisa diakses oleh parentNavController
         composable("profile") {
             ProfileScreen(navController = navController)
+        }
+
+        // --- DETAIL ARTIKEL (GLOBAL ROUTE) ---
+        // Menambahkan rute ini di sini agar bisa diakses langsung dari HomeScreen (Main)
+        composable(
+            route = "article_detail/{articleId}?source={source}",
+            arguments = listOf(
+                navArgument("articleId") { type = NavType.StringType },
+                navArgument("source") {
+                    type = NavType.StringType
+                    defaultValue = "public"
+                }
+            )
+        ) { backStackEntry ->
+            val articleIdStr = backStackEntry.arguments?.getString("articleId")
+            val articleId = articleIdStr?.toIntOrNull()
+            val source = backStackEntry.arguments?.getString("source") ?: "public"
+
+            // Menggunakan ViewModel edukasi untuk mencari data artikel
+            val sharedViewModel = remember { EducationViewModel(context) }
+
+            LaunchedEffect(articleId, source) {
+                if (source == "my") sharedViewModel.loadMyArticles()
+                else sharedViewModel.loadArticles()
+            }
+
+            if (articleId == null) {
+                ArticleDetailScreen(
+                    navController = navController,
+                    articleId = "",
+                    title = "Artikel tidak valid",
+                    category = "Umum",
+                    readTime = "-",
+                    content = "ID artikel tidak ditemukan."
+                )
+                return@composable
+            }
+
+            val article = if (source == "my") {
+                sharedViewModel.myArticles.find { it.id == articleId }
+            } else {
+                sharedViewModel.articles.find { it.id == articleId }
+            }
+
+            if (article != null) {
+                val isPublic = article is PublicArticleDto
+                ArticleDetailScreen(
+                    navController = navController,
+                    articleId = articleId.toString(),
+                    title = if (isPublic) (article as PublicArticleDto).judul else (article as MyArticleDto).judul,
+                    category = if (isPublic) ((article as PublicArticleDto).kategori ?: "Umum") else ((article as MyArticleDto).kategori ?: "Umum"),
+                    readTime = if (isPublic) ((article as PublicArticleDto).waktuBaca ?: "-") else ((article as MyArticleDto).waktuBaca ?: "-"),
+                    imageUrl = if (isPublic) (article as PublicArticleDto).gambarUrl else (article as MyArticleDto).gambarUrl,
+                    content = if (isPublic) (article as PublicArticleDto).isi else (article as MyArticleDto).isi,
+                    isUserArticle = source == "my" || (isPublic && (article as PublicArticleDto).jenis == "user"),
+                    authorName = if (isPublic) (article as PublicArticleDto).authorName else (article as MyArticleDto).authorName,
+                    uploadedDate = if (isPublic) (article as PublicArticleDto).tanggal else (article as MyArticleDto).tanggalUpload
+                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = BluePrimary)
+                }
+            }
         }
     }
 }

@@ -8,30 +8,29 @@ import androidx.room.Query
 @Dao
 interface BookmarkDao {
 
-    // ✅ yang tampil di UI (yang belum di-delete)
+    // ✅ Ambil yang tampil di UI (isDeleted = 0)
     @Query("SELECT * FROM bookmark WHERE isDeleted = 0 ORDER BY bookmarkId DESC")
     suspend fun getAllOnce(): List<BookmarkEntity>
 
-    // ✅ ambil semua (termasuk yang pending delete)
+    // ✅ Ambil semua untuk kebutuhan sinkronisasi
     @Query("SELECT * FROM bookmark ORDER BY bookmarkId DESC")
     suspend fun getAllIncludingDeletedOnce(): List<BookmarkEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<BookmarkEntity>)
 
-    // ✅ soft delete (offline-first)
+    // ✅ Soft delete agar sinkronisasi offline-first berjalan
     @Query("UPDATE bookmark SET isDeleted = 1 WHERE bookmarkId = :id")
     suspend fun softDeleteById(id: Int)
 
-    // ✅ undo delete (opsional)
     @Query("UPDATE bookmark SET isDeleted = 0 WHERE bookmarkId = :id")
     suspend fun undoSoftDeleteById(id: Int)
 
-    // ✅ daftar id yang pending delete
+    // ✅ Mencari daftar ID yang perlu dikirim ke server untuk dihapus
     @Query("SELECT bookmarkId FROM bookmark WHERE isDeleted = 1")
     suspend fun getPendingDeleteIds(): List<Int>
 
-    // ✅ hapus permanen (setelah server sukses)
+    // ✅ Hapus permanen dari lokal setelah server sukses merespon
     @Query("DELETE FROM bookmark WHERE bookmarkId = :id")
     suspend fun deleteById(id: Int)
 
@@ -39,5 +38,5 @@ interface BookmarkDao {
     suspend fun markAsReadLocal(id: Int)
 
     @Query("DELETE FROM bookmark")
-    suspend fun clearAll()
+    suspend fun deleteAll()
 }
