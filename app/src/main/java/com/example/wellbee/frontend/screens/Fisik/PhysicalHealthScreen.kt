@@ -60,22 +60,22 @@ fun PhysicalDashboardContent() {
     // =================================================================
     // ✅ 2. LOGIKA BARU: AUTO-SYNC TOKEN HP KE DATABASE
     // =================================================================
-    LaunchedEffect(Unit) {
-        // Ambil Token HP dari Firebase
-        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            if (!token.isNullOrEmpty()) {
-                Log.d("FCM_TOKEN", "Token HP Ditemukan: $token")
-
-                // Kirim Token ke Backend Lewat Repository
-                scope.launch {
-                    // Pastikan fungsi syncFcmToken sudah ada di FisikRepository ya!
-                    repo.syncFcmToken(token)
-                }
-            }
-        }.addOnFailureListener {
-            Log.e("FCM_TOKEN", "Gagal ambil token: ${it.message}")
-        }
-    }
+//    LaunchedEffect(Unit) {
+//        // Ambil Token HP dari Firebase
+//        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+//            if (!token.isNullOrEmpty()) {
+//                Log.d("FCM_TOKEN", "Token HP Ditemukan: $token")
+//
+//                // Kirim Token ke Backend Lewat Repository
+//                scope.launch {
+//                    // Pastikan fungsi syncFcmToken sudah ada di FisikRepository ya!
+//                    repo.syncFcmToken(token)
+//                }
+//            }
+//        }.addOnFailureListener {
+//            Log.e("FCM_TOKEN", "Gagal ambil token: ${it.message}")
+//        }
+//    }
     // =================================================================
 
 

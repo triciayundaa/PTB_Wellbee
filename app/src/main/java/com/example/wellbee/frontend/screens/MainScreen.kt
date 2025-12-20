@@ -9,6 +9,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope // ✅ Tambahan
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.wellbee.data.FisikRepository // ✅ Tambahan Import Repo
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.BottomNavigationBar
 import com.example.wellbee.frontend.navigation.EducationNavGraph
@@ -27,10 +29,38 @@ import com.example.wellbee.frontend.screens.Edukasi.ArticleDetailScreen
 import com.example.wellbee.frontend.screens.Fisik.PhysicalHealthScreen
 import com.example.wellbee.frontend.screens.Home.HomeScreen
 import com.example.wellbee.ui.theme.BluePrimary
+import com.google.firebase.messaging.FirebaseMessaging // ✅ Tambahan Import Firebase
+import kotlinx.coroutines.launch // ✅ Tambahan Import Coroutine
 
 @SuppressLint("ComposableDestinationInComposeScope")
 @Composable
 fun MainScreen(parentNavController: NavHostController) {
+
+    // =========================================================
+    // ✅ 1. SETUP VARIABEL UNTUK KIRIM TOKEN (TAMBAHAN BARU)
+    // =========================================================
+    val context = LocalContext.current
+    // Kita panggil Repo Fisik disini cuma buat pinjam fungsi syncFcmToken-nya
+    val repo = remember { FisikRepository(context) }
+    val scope = rememberCoroutineScope()
+
+    // =========================================================
+    // ✅ 2. LOGIKA AUTO-SYNC TOKEN (JALAN SAAT APLIKASI DIBUKA)
+    // =========================================================
+    LaunchedEffect(Unit) {
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            if (!token.isNullOrEmpty()) {
+                android.util.Log.d("FCM_TOKEN", "🏠 MainScreen: Token HP Ditemukan: $token")
+                scope.launch {
+                    repo.syncFcmToken(token) // Kirim ke Backend
+                }
+            }
+        }.addOnFailureListener {
+            android.util.Log.e("FCM_TOKEN", "🏠 MainScreen: Gagal ambil token")
+        }
+    }
+    // =========================================================
+
 
     // NavController untuk bottom navigation
     val bottomNavController = rememberNavController()
@@ -75,7 +105,6 @@ fun MainScreen(parentNavController: NavHostController) {
 
                 // ============================
                 // ARTICLE DETAIL (BACKEND)
-                // Dipakai dari HomeScreen → navController.navigate("article_detail/${article.id}")
                 // ============================
                 composable(
                     route = "article_detail/{articleId}",
@@ -89,7 +118,6 @@ fun MainScreen(parentNavController: NavHostController) {
                     val context = LocalContext.current
                     val viewModel = remember { EducationViewModel(context) }
 
-                    // setiap kali buka detail → refresh artikel publik dari backend
                     LaunchedEffect(articleIdStr) {
                         viewModel.loadArticles()
                     }
@@ -102,7 +130,6 @@ fun MainScreen(parentNavController: NavHostController) {
                     } else null
 
                     when {
-                        // ✅ Artikel ditemukan → tampilkan detail lengkap
                         article != null -> {
                             ArticleDetailScreen(
                                 navController = bottomNavController,
@@ -114,13 +141,10 @@ fun MainScreen(parentNavController: NavHostController) {
                                 imageUrl = article.gambarUrl,
                                 content = article.isi,
                                 isUserArticle = article.jenis == "user",
-                                // ⬇️ nama penulis asli dari backend (JOIN ke tabel users.username)
                                 authorName = article.authorName,
                                 uploadedDate = article.tanggal
                             )
                         }
-
-                        // ⏳ Masih loading dari backend
                         isLoading -> {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -129,8 +153,6 @@ fun MainScreen(parentNavController: NavHostController) {
                                 CircularProgressIndicator(color = BluePrimary)
                             }
                         }
-
-                        // ❌ Tidak ketemu artikel
                         else -> {
                             ArticleDetailScreen(
                                 navController = bottomNavController,
