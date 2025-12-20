@@ -9,7 +9,7 @@ object RetrofitClient {
 
     // KARENA TIDAK ADA /api DI ROUTE, CUKUP SEPERTI INI:
 
-    const val BASE_URL = "http://192.168.110.22:3000/"
+    const val BASE_URL = "http://192.168.110.130:3000/"
 
 
     fun getInstance(context: Context): ApiService {

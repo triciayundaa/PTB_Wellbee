@@ -25,7 +25,7 @@ import androidx.room.RoomDatabase
     ],
 
 
-    version = 7,
+    version = 8,
 
     exportSchema = false
 )
