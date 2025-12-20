@@ -4,14 +4,14 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    // Gunakan ID untuk yang belum ada di alias
+    // === GABUNGAN PLUGIN ===
     id("kotlin-kapt")
-    id("com.google.gms.google-services")
+    id("com.google.gms.google-services") // PENTING: Untuk Firebase Kamu
 }
 
 android {
     namespace = "com.example.wellbee"
-    compileSdk = 36 // Saran: Gunakan 35, SDK 36 masih sangat baru/preview
+    compileSdk = 36 // Gunakan 35 (Stable), 36 masih preview sering bikin error
 
     defaultConfig {
         applicationId = "com.example.wellbee"
@@ -61,14 +61,19 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+    // Navigasi & UI Tambahan (Gabungan)
     implementation("androidx.navigation:navigation-compose:2.8.3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.animation:animation")
+    implementation("com.google.accompanist:accompanist-navigation-animation:0.32.0") // Punya Nailah
 
-    // --- CHARTS & UI COMPONENTS ---
+    // --- CHARTS (GRAFIK) ---
+    // Vico Charts
     implementation("com.patrykandpatrick.vico:compose:1.14.0")
     implementation("com.patrykandpatrick.vico:core:1.14.0")
     implementation("com.patrykandpatrick.vico:views:1.14.0")
+    // MPAndroidChart
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
     // --- BACKEND & NETWORKING ---
@@ -83,12 +88,16 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     kapt("androidx.room:room-compiler:$roomVersion")
+
+    // WorkManager (Punya Kamu - Jangan Dihapus)
     implementation("androidx.work:work-runtime-ktx:2.8.1")
 
-    // --- IMAGE LOADING ---
+    // --- IMAGE LOADING (Coil) ---
+    // Kita pakai versi 2.6.0 (Punya Kamu - Lebih Baru)
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // --- FIREBASE (FCM) ---
+    // --- FIREBASE (FCM - NOTIFIKASI) ---
+    // INI WAJIB ADA BIAR FITUR TOKEN TIDAK RUSAK
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
 

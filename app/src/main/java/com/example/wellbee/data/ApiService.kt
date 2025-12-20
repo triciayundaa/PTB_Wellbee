@@ -1,7 +1,7 @@
 package com.example.wellbee.data
 
 // ==========================================
-// 1. IMPORT (GABUNGAN DARI MAIN & FATHIYA)
+// 1. IMPORT (GABUNGAN DARI MAIN & FATHIYA & NAILAH)
 // ==========================================
 import com.example.wellbee.data.model.AddBookmarkRequest
 import com.example.wellbee.data.model.BookmarkListResponse
@@ -26,6 +26,7 @@ import com.example.wellbee.data.model.WeightRequest
 import com.example.wellbee.data.model.WeightResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import retrofit2.Call
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -39,7 +40,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 // ==========================
-// 2. DATA CLASSES (AUTH)
+// 2. DATA CLASSES (AUTH - GABUNGAN)
 // ==========================
 data class LoginRequest(
     val email: String,
@@ -56,7 +57,7 @@ data class UserData(
     val id: Int,
     val username: String,
     val email: String,
-    val phone: String?
+    val phone: String? = null // Digabungkan (Nullable biar aman)
 )
 
 data class RegisterRequest(
@@ -70,8 +71,41 @@ data class RegisterResponse(
     val message: String
 )
 
+// =======================
+// MENTAL MODELS (PUNYA NAILAH)
+// =======================
+data class MoodRequest(
+    val userId: Int,
+    val emoji: String,
+    val moodLabel: String,
+    val moodScale: Int,
+    val tanggal: String? = null
+)
+
+data class JournalRequest(
+    val userId: Int,
+    val triggerLabel: String? = null,
+    val isiJurnal: String,
+    val foto: String? = null,
+    val audio: String? = null, // [BARU] Tambahkan ini agar audio terkirim ke backend
+    val tanggal: String? = null
+)
+
+// =======================
+// GENERAL API RESPONSE
+// =======================
+data class ApiResponse<T>(
+    val status: String,
+    val data: T? = null,
+    val message: String? = null
+)
+
+data class InsertResponse(
+    val id: Int
+)
+
 // ==========================
-// 3. INTERFACE API SERVICE
+// 3. INTERFACE API SERVICE (FINAL)
 // ==========================
 interface ApiService {
 
@@ -113,7 +147,7 @@ interface ApiService {
     @GET("api/fisik/weekly")
     suspend fun getWeeklySport(): Response<WeeklySportChartResponse>
 
-    // Ganti DataClassToken dengan Map kalau kamu malas bikin data class baru
+    // TOKEN FCM
     @POST("api/fisik/fcm-token")
     suspend fun updateFcmToken(@Body body: Map<String, String>): Response<Any>
 
@@ -229,4 +263,16 @@ interface ApiService {
     suspend fun markBookmarkAsRead(
         @Path("id") bookmarkId: Int
     ): MessageResponse
+
+    // =======================
+    // MENTAL - MOOD (NAILAH)
+    // =======================
+    @POST("api/mental/mood")
+    suspend fun postMood(@Body request: MoodRequest): Response<ApiResponse<InsertResponse>>
+
+    // =======================
+    // MENTAL - JURNAL (NAILAH)
+    // =======================
+    @POST("api/mental/jurnal")
+    suspend fun postJournal(@Body request: JournalRequest): Response<ApiResponse<InsertResponse>>
 }

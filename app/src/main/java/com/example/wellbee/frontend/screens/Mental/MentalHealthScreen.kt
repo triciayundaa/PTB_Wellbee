@@ -1,5 +1,6 @@
 package com.example.wellbee.frontend.screens.mental
 
+import android.graphics.Color.parseColor
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,18 +14,34 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.line.lineChart
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.entryOf
+import com.example.wellbee.data.local.AppDatabase
+import com.example.wellbee.data.local.MentalMoodEntity
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MentalHealthScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val dao = remember { AppDatabase.getInstance(context).mentalDao() }
+    val scope = rememberCoroutineScope()
+
+    // Mengambil data mood dari database secara realtime
+    // Asumsi userId = 1
+    val moodList by dao.observeMoodByUser(1).collectAsState(initial = emptyList())
 
     val emojiList = listOf(
         "😄" to "Senang",
@@ -35,11 +52,32 @@ fun MentalHealthScreen(navController: NavHostController) {
     )
 
     var selectedEmoji by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var moodScale by remember { mutableStateOf(5f) }
-    var moodHistory by remember { mutableStateOf(listOf<Int>()) }
+    var moodScale by remember { mutableFloatStateOf(5f) }
     var isSaved by remember { mutableStateOf(false) }
     var selectedRange by remember { mutableStateOf("7 Days") }
     val dropdownItems = listOf("7 Days", "Today")
+
+    // Menyiapkan data untuk grafik
+    // Mengambil 7 data terakhir dan mengurutkan berdasarkan tanggal
+    val chartData = remember(moodList) {
+        moodList.sortedBy { it.tanggal }.takeLast(7)
+    }
+
+    val xLabels = remember(chartData) {
+        chartData.map {
+            try {
+                val parser = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val formatter = SimpleDateFormat("dd/MM", Locale.getDefault())
+                formatter.format(parser.parse(it.tanggal) ?: Date())
+            } catch (e: Exception) {
+                it.tanggal
+            }
+        }
+    }
+
+    val yValues = remember(chartData) {
+        chartData.map { it.moodScale.toDouble() }
+    }
 
     Column(
         modifier = Modifier
@@ -79,6 +117,7 @@ fun MentalHealthScreen(navController: NavHostController) {
                 .animateContentSize()
         ) {
 
+            // === Bagian Input Mood ===
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFD9F2E6)),
                 shape = RoundedCornerShape(16.dp),
@@ -116,6 +155,7 @@ fun MentalHealthScreen(navController: NavHostController) {
                 }
             }
 
+            // === Bagian Detail & Save Mood ===
             selectedEmoji?.let { (emoji, moodLabel) ->
 
                 Spacer(Modifier.height(20.dp))
@@ -161,46 +201,58 @@ fun MentalHealthScreen(navController: NavHostController) {
                         if (!isSaved) {
                             Button(
                                 onClick = {
-                                    moodHistory = (moodHistory + moodScale.toInt()).takeLast(7)
-                                    isSaved = true
+                                    scope.launch {
+                                        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                        val newMood = MentalMoodEntity(
+                                            userId = 1,
+                                            emoji = emoji,
+                                            moodLabel = moodLabel,
+                                            moodScale = moodScale.toInt(),
+                                            tanggal = currentDate
+                                        )
+                                        dao.insertMood(newMood)
+                                        isSaved = true
+                                    }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF105490)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Save", color = Color.White)
+                                Text("Save Mood", color = Color.White)
                             }
                         } else {
                             Button(
                                 onClick = {
                                     isSaved = false
                                     selectedEmoji = null
+                                    moodScale = 5f
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE67E22)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Edit Mood", color = Color.White)
+                                Text("Input Baru", color = Color.White)
                             }
                         }
 
-                        Spacer(Modifier.height(16.dp))
-                        Text("Mood hari ini", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("Kategori: $moodLabel", color = Color(0xFF105490))
-                        Text("Skala: ${moodScale.toInt()}/10", color = Color(0xFF105490))
-                        Spacer(Modifier.height(12.dp))
-                        Text(emoji, fontSize = 56.sp)
+                        if (isSaved) {
+                            Spacer(Modifier.height(16.dp))
+                            Text("Mood tersimpan!", fontWeight = FontWeight.Bold, color = Color(0xFF27AE60))
+                            Text("Kategori: $moodLabel", color = Color(0xFF105490))
+                            Text("Skala: ${moodScale.toInt()}/10", color = Color(0xFF105490))
+                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(28.dp))
 
+            // === Header Grafik ===
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
-                Text("Statistik mood", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Statistik Mood", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF105490))
 
                 var expanded by remember { mutableStateOf(false) }
                 Box {
@@ -232,40 +284,37 @@ fun MentalHealthScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(12.dp))
 
-            val data = when {
-                selectedRange == "Today" && moodHistory.isNotEmpty() -> listOf(moodHistory.last())
-                moodHistory.isNotEmpty() -> moodHistory.takeLast(7)
-                else -> listOf(5, 6, 8, 7, 9, 7, 8)
-            }
-
-            val chartEntries = data.mapIndexed { index, value -> entryOf(index, value) }
-            val chartModel = ChartEntryModelProducer(chartEntries)
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(230.dp)
-            ) {
+            // === Grafik Line Chart ===
+            if (chartData.isNotEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        LineChartViewMental(
+                            xLabels = xLabels,
+                            yValues = yValues,
+                            label = "Mood Scale"
+                        )
+                    }
+                }
+            } else {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
+                        .fillMaxWidth()
+                        .height(200.dp)
                         .background(Color(0xFFF7F8FB), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Chart(
-                        chart = lineChart(),
-                        chartModelProducer = chartModel,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Text("Belum ada data mood minggu ini.", color = Color.Gray)
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
+            // === Navigasi Jurnal ===
             Button(
                 onClick = { navController.navigate("diary") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD9F2E6)),
@@ -274,10 +323,76 @@ fun MentalHealthScreen(navController: NavHostController) {
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("✏️ Write something", color = Color(0xFF105490), fontSize = 16.sp)
+                Text("✏️ Write Journal", color = Color(0xFF105490), fontSize = 16.sp)
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = { navController.navigate("journal_list") },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF105490)),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("📖 View My Journals", color = Color.White, fontSize = 16.sp)
             }
 
             Spacer(Modifier.height(60.dp))
         }
     }
+}
+
+// === Custom Chart Component ===
+// Menggunakan MPAndroidChart agar konsisten dengan tampilan Fisik
+@Composable
+fun LineChartViewMental(xLabels: List<String>, yValues: List<Double>, label: String) {
+    AndroidView(
+        factory = { context ->
+            LineChart(context).apply {
+                description.isEnabled = false
+                legend.isEnabled = false
+                
+                xAxis.position = XAxis.XAxisPosition.BOTTOM
+                xAxis.granularity = 1f
+                xAxis.textColor = parseColor("#105490")
+                xAxis.setDrawGridLines(false)
+
+                axisLeft.textColor = parseColor("#105490")
+                axisLeft.axisMinimum = 0f
+                axisLeft.axisMaximum = 10f
+                axisRight.isEnabled = false
+            }
+        },
+        update = { chart ->
+            if (xLabels.isEmpty() || yValues.isEmpty()) return@AndroidView
+
+            val entries = yValues.mapIndexed { index, value ->
+                Entry(index.toFloat(), value.toFloat())
+            }
+
+            val dataSet = LineDataSet(entries, label).apply {
+                color = parseColor("#105490")
+                setCircleColor(parseColor("#105490"))
+                valueTextColor = parseColor("#105490")
+                valueTextSize = 10f
+                lineWidth = 2f
+                mode = LineDataSet.Mode.CUBIC_BEZIER
+                setDrawFilled(true)
+                fillColor = parseColor("#D9EFFF")
+            }
+
+            val lineData = LineData(dataSet)
+            chart.data = lineData
+            chart.xAxis.valueFormatter = com.github.mikephil.charting.formatter.IndexAxisValueFormatter(xLabels)
+            
+            // Refresh chart
+            chart.notifyDataSetChanged()
+            chart.invalidate()
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp)
+    )
 }
