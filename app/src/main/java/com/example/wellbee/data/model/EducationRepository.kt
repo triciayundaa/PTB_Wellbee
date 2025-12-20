@@ -12,18 +12,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class EducationRepository(private val context: Context) {
 
     private val api = RetrofitClient.getInstance(context)
-
-    // 🔹 MENGGUNAKAN BASE_URL DARI PUSAT (RetrofitClient)
     private val baseServerUrl = RetrofitClient.BASE_URL.removeSuffix("/")
-
     private val db = AppDatabase.getInstance(context)
     private val artikelDao = db.artikelDao()
     private val bookmarkDao = db.bookmarkDao()
     private val searchHistoryDao = db.searchHistoryDao()
 
-    /**
-     * Fungsi pembantu untuk memastikan URL gambar selalu lengkap (Full URL)
-     */
     private fun fixImageUrl(url: String?): String? {
         if (url == null) return null
         return when {
@@ -34,30 +28,28 @@ class EducationRepository(private val context: Context) {
     }
 
     // ==========================
-    // ARTIKEL PUBLIK
+    // ARTIKEL PUBLIK (FIXED LOGIC)
     // ==========================
     suspend fun getPublicArticles(search: String? = null): List<PublicArticleDto> {
         val keyword = search?.trim().orEmpty()
 
         return try {
             val response = api.getPublicArticles()
+            val fixed = response.articles.map { it.copy(gambarUrl = fixImageUrl(it.gambarUrl)) }
 
-            val fixed = response.articles.map { article ->
-                article.copy(gambarUrl = fixImageUrl(article.gambarUrl))
-            }
-
+            // Simpan ke Room
             artikelDao.clearAndInsert(fixed.map { it.toEntity() })
 
-            val result = if (keyword.isNotBlank()) {
-                fixed.filter {
-                    it.judul.contains(keyword, true) ||
-                            it.isi.contains(keyword, true) ||
-                            (it.tag?.contains(keyword, true) == true)
-                }
-            } else fixed
+            // AMBIL KEMBALI DARI ROOM (Agar urutan DESC dari SQL Aktif)
+            val entities = if (keyword.isNotBlank()) {
+                artikelDao.searchOnce(keyword)
+            } else {
+                artikelDao.getAllOnce()
+            }
+            entities.map { it.toDto() }
 
-            result.sortedByDescending { it.tanggal }
         } catch (e: Exception) {
+            // OFFLINE MODE
             val cached = if (keyword.isNotBlank()) {
                 artikelDao.searchOnce(keyword)
             } else {
@@ -68,16 +60,17 @@ class EducationRepository(private val context: Context) {
     }
 
     suspend fun getCategories(): List<String> {
-        return api.getCategories().categories
+        return try {
+            api.getCategories().categories
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
-    // ==========================
-    // BOOKMARK
-    // ==========================
+    // --- BOOKMARK LOGIC (Tetap Sama) ---
     private suspend fun syncPendingDeletes() {
         val pendingIds = bookmarkDao.getPendingDeleteIds()
         if (pendingIds.isEmpty()) return
-
         for (id in pendingIds) {
             try {
                 api.deleteBookmark(id)
@@ -88,47 +81,34 @@ class EducationRepository(private val context: Context) {
 
     suspend fun getBookmarks(): List<BookmarkDto> {
         return try {
-            // 🔹 Sinkronisasi data yang sempat dihapus saat offline
             syncPendingDeletes()
-
             val response = api.getBookmarks()
-
             val fixed = response.bookmarks.map { bookmark ->
                 bookmark.copy(gambarUrl = fixImageUrl(bookmark.gambarUrl))
             }
-
-            // 🔹 PERBAIKAN: Bersihkan database lokal agar sinkron dengan data server terbaru
             bookmarkDao.deleteAll()
-
-            // Simpan data baru dengan status isDeleted = 0
             bookmarkDao.upsertAll(fixed.map { it.toEntity(isDeleted = 0) })
-
-            // Kembalikan data dari lokal yang sudah bersih
             bookmarkDao.getAllOnce().map { it.toDto() }
         } catch (e: Exception) {
-            // Jika offline, tampilkan data lokal yang tersedia (yang isDeleted = 0)
             bookmarkDao.getAllOnce().map { it.toDto() }
         }
     }
 
     suspend fun addBookmark(artikelId: Int, jenis: String): String {
-        val res = api.addBookmark(AddBookmarkRequest(artikelId, jenis))
-        // Langsung sinkronkan ulang setelah menambah
-        getBookmarks()
-        return res.message
+        return try {
+            val res = api.addBookmark(AddBookmarkRequest(artikelId, jenis))
+            getBookmarks()
+            res.message
+        } catch (e: Exception) { "Offline" }
     }
 
     suspend fun deleteBookmark(bookmarkId: Int): String {
-        // Soft delete lokal dulu agar UI langsung update (Offline-first)
         bookmarkDao.softDeleteById(bookmarkId)
         return try {
             val res = api.deleteBookmark(bookmarkId)
-            // Jika sukses di server, hapus permanen di lokal
             bookmarkDao.deleteById(bookmarkId)
             res.message
-        } catch (e: Exception) {
-            "Offline: bookmark dihapus lokal dan akan disinkronkan saat online."
-        }
+        } catch (e: Exception) { "Offline" }
     }
 
     suspend fun markBookmarkAsRead(bookmarkId: Int): String {
@@ -136,155 +116,58 @@ class EducationRepository(private val context: Context) {
         return try {
             val res = api.markBookmarkAsRead(bookmarkId)
             res.message
-        } catch (e: Exception) {
-            "Offline: status dibaca tersimpan lokal dan akan disinkronkan saat online."
-        }
+        } catch (e: Exception) { "Offline" }
     }
 
-    // ==========================
-    // UPLOAD ARTIKEL USER
-    // ==========================
+    // --- UPLOAD & MY ARTICLES (Tetap Sama) ---
     suspend fun uploadImage(imageUri: Uri): String {
-        val stream = context.contentResolver.openInputStream(imageUri)
-            ?: throw Exception("Tidak bisa membuka gambar")
-
+        val stream = context.contentResolver.openInputStream(imageUri) ?: throw Exception("Fail")
         val bytes = stream.readBytes()
         stream.close()
-
         val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-        val part = MultipartBody.Part.createFormData(
-            name = "image",
-            filename = "artikel_${System.currentTimeMillis()}.jpg",
-            body = requestBody
-        )
-
+        val part = MultipartBody.Part.createFormData("image", "art_${System.currentTimeMillis()}.jpg", requestBody)
         val response = api.uploadImage(part)
-        if (!response.isSuccessful || response.body() == null) {
-            throw Exception("Upload gambar gagal: ${response.code()}")
-        }
-
-        return response.body()!!.url
+        return response.body()?.url ?: throw Exception("Fail")
     }
 
-    suspend fun createMyArticle(
-        kategori: String,
-        readTime: String,
-        tag: String,
-        title: String,
-        content: String,
-        gambarUrl: String?,
-        status: String
-    ): Boolean {
-        val body = CreateArticleRequest(
-            kategori = kategori,
-            waktu_baca = readTime,
-            tag = tag,
-            judul = title,
-            isi = content,
-            gambar_url = gambarUrl,
-            status = status
-        )
-
-        val response = api.createMyArticle(body)
-        if (!response.isSuccessful) {
-            throw Exception("Upload artikel gagal: ${response.code()} ${response.message()}")
-        }
-        return true
+    suspend fun createMyArticle(kategori: String, readTime: String, tag: String, title: String, content: String, gambarUrl: String?, status: String): Boolean {
+        val body = CreateArticleRequest(kategori, readTime, tag, title, content, gambarUrl, status)
+        return api.createMyArticle(body).isSuccessful
     }
 
-    // ==========================
-    // ARTIKEL SAYA
-    // ==========================
     suspend fun getMyArticles(): List<MyArticleDto> {
-        val response = api.getMyArticles()
-        return response.articles.map { article ->
-            article.copy(gambarUrl = fixImageUrl(article.gambarUrl))
-        }
+        return try {
+            val response = api.getMyArticles()
+            response.articles.map { it.copy(gambarUrl = fixImageUrl(it.gambarUrl)) }
+        } catch (e: Exception) { emptyList() }
     }
 
     suspend fun updateMyArticleStatus(articleId: Int, newStatus: String): Boolean {
-        val response = api.updateMyArticleStatus(
-            id = articleId,
-            request = UpdateArticleStatusRequest(newStatus)
-        )
-        return response.isSuccessful
+        return try { api.updateMyArticleStatus(articleId, UpdateArticleStatusRequest(newStatus)).isSuccessful } catch (e: Exception) { false }
     }
 
     suspend fun deleteMyArticle(articleId: Int): Boolean {
-        val response = api.deleteMyArticle(articleId)
-        return response.isSuccessful
+        return try { api.deleteMyArticle(articleId).isSuccessful } catch (e: Exception) { false }
     }
 
-    suspend fun updateMyArticle(
-        id: Int,
-        judul: String,
-        isi: String,
-        kategori: String,
-        waktuBaca: String,
-        tag: String,
-        imageUri: Uri?
-    ): MyArticleDto {
-
+    suspend fun updateMyArticle(id: Int, judul: String, isi: String, kategori: String, waktuBaca: String, tag: String, imageUri: Uri?): MyArticleDto {
         fun String.toPart() = this.toRequestBody("text/plain".toMediaTypeOrNull())
+        val gambarPart: MultipartBody.Part? = if (imageUri != null && !imageUri.toString().startsWith("http")) {
+            val stream = context.contentResolver.openInputStream(imageUri)
+            val bytes = stream!!.readBytes()
+            stream.close()
+            MultipartBody.Part.createFormData("gambar", "img.jpg", bytes.toRequestBody("image/*".toMediaTypeOrNull()))
+        } else null
 
-        val judulPart = judul.toPart()
-        val isiPart = isi.toPart()
-        val kategoriPart = kategori.toPart()
-        val waktuBacaPart = waktuBaca.toPart()
-        val tagPart = tag.toPart()
-
-        val gambarPart: MultipartBody.Part? = when {
-            imageUri == null -> null
-            imageUri.toString().startsWith("http", true) -> null
-            else -> {
-                val stream = context.contentResolver.openInputStream(imageUri)
-                    ?: throw Exception("Tidak bisa membuka gambar")
-                val bytes = stream.readBytes()
-                stream.close()
-
-                val reqBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                MultipartBody.Part.createFormData(
-                    name = "gambar",
-                    filename = "artikel_${System.currentTimeMillis()}.jpg",
-                    body = reqBody
-                )
-            }
-        }
-
-        val response = api.updateMyArticle(
-            id = id,
-            judul = judulPart,
-            isi = isiPart,
-            kategori = kategoriPart,
-            waktuBaca = waktuBacaPart,
-            tag = tagPart,
-            gambar = gambarPart
-        )
-
-        val result = response.data
-        return result.copy(gambarUrl = fixImageUrl(result.gambarUrl))
+        val response = api.updateMyArticle(id, judul.toPart(), isi.toPart(), kategori.toPart(), waktuBaca.toPart(), tag.toPart(), gambarPart)
+        return response.data.copy(gambarUrl = fixImageUrl(response.data.gambarUrl))
     }
 
-    // ==========================
-    // SEARCH HISTORY (ROOM)
-    // ==========================
     suspend fun recordSearch(query: String) {
-        val q = query.trim()
-        if (q.isBlank()) return
-
-        searchHistoryDao.upsert(
-            SearchHistoryEntity(
-                query = q,
-                lastUsedAt = System.currentTimeMillis()
-            )
-        )
+        if (query.isBlank()) return
+        searchHistoryDao.upsert(SearchHistoryEntity(query.trim(), System.currentTimeMillis()))
     }
 
-    suspend fun getRecentSearches(limit: Int = 8): List<String> {
-        return searchHistoryDao.getRecent(limit).map { it.query }
-    }
-
-    suspend fun clearSearchHistory() {
-        searchHistoryDao.clearAll()
-    }
+    suspend fun getRecentSearches(limit: Int = 8): List<String> = searchHistoryDao.getRecent(limit).map { it.query }
+    suspend fun clearSearchHistory() = searchHistoryDao.clearAll()
 }

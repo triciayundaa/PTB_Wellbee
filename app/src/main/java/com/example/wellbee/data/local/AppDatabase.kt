@@ -23,7 +23,10 @@ import androidx.room.RoomDatabase
         MentalMoodEntity::class,
         MentalJournalEntity::class
     ],
-    version = 7, // Kita naikkan versinya biar aman (6 punya kamu + perubahan nailah)
+
+
+    version = 7,
+
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

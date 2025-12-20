@@ -3,8 +3,10 @@ package com.example.wellbee.data.model
 import com.example.wellbee.data.local.ArtikelEntity
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
-private fun parseTanggalToEpoch(tanggal: String): Long {
+private fun parseTanggalToEpoch(tanggal: String?): Long {
+    if (tanggal.isNullOrBlank()) return 0L
     val formats = listOf(
         "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
         "yyyy-MM-dd'T'HH:mm:ssXXX",
@@ -14,12 +16,14 @@ private fun parseTanggalToEpoch(tanggal: String): Long {
 
     for (pattern in formats) {
         try {
-            val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+            val sdf = SimpleDateFormat(pattern, Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
             val date = sdf.parse(tanggal)
             if (date != null) return date.time
         } catch (_: Exception) {}
     }
-    return System.currentTimeMillis()
+    return tanggal.hashCode().toLong()
 }
 
 fun PublicArticleDto.toEntity(): ArtikelEntity = ArtikelEntity(
@@ -31,7 +35,7 @@ fun PublicArticleDto.toEntity(): ArtikelEntity = ArtikelEntity(
     tag = tag,
     gambarUrl = gambarUrl,
     tanggal = tanggal,
-    tanggalEpoch = parseTanggalToEpoch(tanggal),
+    tanggalEpoch = parseTanggalToEpoch(tanggal), // Simpan angka untuk sorting database
     jenis = jenis,
     userId = userId,
     authorName = authorName
@@ -45,7 +49,7 @@ fun ArtikelEntity.toDto(): PublicArticleDto = PublicArticleDto(
     waktuBaca = waktuBaca,
     tag = tag,
     gambarUrl = gambarUrl,
-    tanggal = tanggal,
+    tanggal = tanggal, // UI akan mensortir string ini menggunakan parseBackendDateToMillis
     jenis = jenis,
     userId = userId,
     authorName = authorName
