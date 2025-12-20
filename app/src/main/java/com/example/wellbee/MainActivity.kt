@@ -1,13 +1,17 @@
 package com.example.wellbee
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.wellbee.frontend.navigation.NavGraph
 import com.example.wellbee.ui.theme.WellbeeTheme
@@ -24,26 +29,53 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
 
-    // [MODIFIKASI] State untuk menyimpan Intent terbaru
-    // Ini memungkinkan LaunchedEffect di Compose merespons saat ada intent baru dari notifikasi
+    // [BARU] Launcher untuk meminta izin notifikasi secara otomatis di Android 13+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d("FCM", "Izin notifikasi diberikan oleh user")
+        } else {
+            Log.w("FCM", "Izin notifikasi ditolak oleh user")
+        }
+    }
+
     private var intentState by mutableStateOf<Intent?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Inisialisasi state dengan intent awal
+
         intentState = intent
 
         createNotificationChannel()
-        createMentalNotificationChannel() // Channel baru untuk Mental Health
+        createMentalNotificationChannel()
 
-        // (Opsional) Ambil FCM Token jika nanti pakai Firebase
+        // 1. [BARU] Logika Request Permission (Wajib untuk Android 13/Tiramisu ke atas)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // 2. [BARU] Subscribe ke Topic 'new_articles'
+        // Agar HP ini bisa menerima notifikasi broadcast artikel dari backend
+        FirebaseMessaging.getInstance().subscribeToTopic("new_articles")
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d("FCM", "Sukses subscribe ke topic: new_articles")
+                } else {
+                    Log.e("FCM", "Gagal subscribe ke topic")
+                }
+            }
+
+        // Ambil FCM Token untuk notifikasi personal (Olahraga/Fisik)
         FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
             if (!task.isSuccessful) {
                 return@OnCompleteListener
             }
             val token = task.result
-            // Log.d("FCM", "Token: $token")
+            Log.d("FCM", "Token HP: $token") // Token ini yang masuk ke log VS Code anda
         })
 
         setContent {
@@ -54,21 +86,18 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
-                    // [MODIFIKASI] Pantau 'intentState' bukannya 'intent' biasa
                     LaunchedEffect(intentState) {
                         intentState?.let { currentIntent ->
                             val targetScreen = currentIntent.getStringExtra("target_screen")
 
-                            // 1. Modul Fisik (sudah ada)
+                            // 1. Modul Fisik
                             if (targetScreen == "physical_health") {
-                                // SEBELUMNYA (SALAH): "physical_health_screen"
-                                // SEKARANG (BENAR): Gunakan nama dari NavGraph kamu
                                 navController.navigate("global_sport_screen") {
                                     launchSingleTop = true
                                 }
                             }
-                            
-                            // 2. Modul Mental - Detail Diary (BARU)
+
+                            // 2. Modul Mental - Detail Diary
                             else if (targetScreen == "mental_journal_detail") {
                                 val journalId = currentIntent.getIntExtra("journal_id", -1)
                                 if (journalId != -1) {
@@ -79,11 +108,21 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("journal_list")
                                 }
                             }
-                            
-                            // 3. Modul Mental - Journal List (OPSIONAL)
+
+                            // 3. Modul Mental - Journal List
                             else if (targetScreen == "mental_journal_list") {
                                 navController.navigate("journal_list") {
                                     launchSingleTop = true
+                                }
+                            }
+
+                            // 4. [BARU] Modul Edukasi - Detail Artikel
+                            else if (targetScreen == "education_detail") {
+                                val articleId = currentIntent.getStringExtra("articleId")
+                                if (articleId != null) {
+                                    navController.navigate("article_detail/$articleId?source=public") {
+                                        launchSingleTop = true
+                                    }
                                 }
                             }
                         }
@@ -95,11 +134,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // [MODIFIKASI] Tangkap Intent baru saat aplikasi sedang berjalan
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent) // Update intent standar Android
-        intentState = intent // Update state Compose agar LaunchedEffect jalan lagi
+        setIntent(intent)
+        intentState = intent
     }
 
     private fun createNotificationChannel() {
