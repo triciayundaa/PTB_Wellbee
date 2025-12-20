@@ -16,7 +16,6 @@ class EducationViewModel(context: Context) : ViewModel() {
 
     // ==========================================
     // 🔹 DRAFT STATE
-    // Mendukung flow Meta -> Content -> Preview agar data tidak hilang
     // ==========================================
     var draftCategory by mutableStateOf("")
     var draftReadTime by mutableStateOf("")
@@ -58,8 +57,8 @@ class EducationViewModel(context: Context) : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
+                // Sorting sekarang dihandle oleh Repository (Room DESC) dan UI (sortedWith)
                 articles = repo.getPublicArticles()
-                    .sortedByDescending { it.tanggal }
             } catch (e: IOException) {
                 errorMessage = "Tidak ada koneksi internet. Silakan coba lagi."
             } catch (e: Exception) {
@@ -80,8 +79,8 @@ class EducationViewModel(context: Context) : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
+                // 🔹 PERBAIKAN: Hapus sorting string manual di sini agar konsisten dengan loadArticles
                 articles = repo.getPublicArticles(query)
-                    .sortedByDescending { it.tanggal }
             } catch (e: IOException) {
                 errorMessage = "Pencarian gagal: Periksa koneksi internet Anda."
             } catch (e: Exception) {
@@ -198,17 +197,14 @@ class EducationViewModel(context: Context) : ViewModel() {
     var bookmarkError by mutableStateOf<String?>(null)
         private set
 
-    // 🔹 PERBAIKAN: Struktur fungsi dirapikan agar sinkronisasi lokal-server benar
     fun loadBookmarks() {
         viewModelScope.launch {
             isLoadingBookmarks = true
             bookmarkError = null
             try {
-                // Fungsi repo.getBookmarks() sudah menangani clear cache & sync
                 bookmarks = repo.getBookmarks()
             } catch (e: IOException) {
                 bookmarkError = "Koneksi terputus. Mengambil data lokal."
-                // Data tetap terupdate dari Room melalui catch block di repo
             } catch (e: Exception) {
                 bookmarkError = e.message ?: "Gagal memuat bookmark"
             } finally {
@@ -222,7 +218,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 bookmarkError = null
                 repo.addBookmark(artikelId, jenis)
-                // Refresh data
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
                 bookmarkError = "Gagal menambah bookmark: Cek internet Anda."
@@ -235,7 +230,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 bookmarkError = null
                 repo.deleteBookmark(bookmarkId)
-                // Refresh data
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
                 bookmarkError = "Gagal menghapus bookmark."
@@ -248,7 +242,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             try {
                 bookmarkError = null
                 repo.markBookmarkAsRead(bookmarkId)
-                // Refresh data
                 bookmarks = repo.getBookmarks()
             } catch (e: Exception) {
                 bookmarkError = "Gagal update status baca."
@@ -321,9 +314,6 @@ class EducationViewModel(context: Context) : ViewModel() {
         }
     }
 
-    // ==========================
-    // UPDATE ARTIKEL SAYA
-    // ==========================
     fun updateMyArticle(
         id: Int,
         kategori: String,

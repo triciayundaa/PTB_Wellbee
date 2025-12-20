@@ -39,18 +39,13 @@ import kotlin.math.roundToInt
 @Composable
 fun HomeScreen(navController: NavHostController) {
 
-    // 1. SETUP CONTEXT & REPOSITORY
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
-    // Repository Fisik (Fathiya)
     val fisikRepo = remember { FisikRepository(context) }
-
-    // ViewModel Edukasi (Kamu)
     val educationViewModel = remember { EducationViewModel(context) }
 
-    // 2. STATE DATA FISIK (Dari Fathiya)
     var sportDuration by remember { mutableStateOf("-") }
     var sportCalories by remember { mutableStateOf("Langkah") }
     var weightValue by remember { mutableStateOf("- kg") }
@@ -58,27 +53,21 @@ fun HomeScreen(navController: NavHostController) {
     var sleepDuration by remember { mutableStateOf("- Jam Tidur") }
     var sleepQuality by remember { mutableStateOf("Kualitas: -") }
 
-    // 3. STATE DATA ARTIKEL (Dari Kamu)
     val articles: List<PublicArticleDto> = educationViewModel.articles
     val isLoading = educationViewModel.isLoading
     val errorMessage = educationViewModel.errorMessage
     val bookmarks = educationViewModel.bookmarks
 
-    // 4. LOGIKA LOAD DATA
-
-    // Load Artikel saat pertama kali (Kamu)
     LaunchedEffect(Unit) {
         educationViewModel.loadArticles()
         educationViewModel.loadBookmarks()
     }
 
-    // Load Data Fisik saat layar aktif/resume (Fathiya)
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 scope.launch {
                     try {
-                        // A. Olahraga
                         val sportRes = fisikRepo.getSportHistory()
                         val latestSport = sportRes.getOrNull()?.firstOrNull()
                         if (latestSport != null) {
@@ -89,7 +78,6 @@ fun HomeScreen(navController: NavHostController) {
                             sportCalories = "0 kcal"
                         }
 
-                        // B. Berat Badan & BMI
                         val weightRes = fisikRepo.getWeightHistory()
                         val latestWeight = weightRes.getOrNull()?.firstOrNull()
                         if (latestWeight != null) {
@@ -98,7 +86,6 @@ fun HomeScreen(navController: NavHostController) {
                             bmiValue = "BMI: $bmiBulat (${latestWeight.kategori})"
                         }
 
-                        // C. Tidur & Kualitas
                         val sleepRes = fisikRepo.getSleepHistory()
                         val latestSleep = sleepRes.getOrNull()?.firstOrNull()
                         if (latestSleep != null) {
@@ -117,7 +104,6 @@ fun HomeScreen(navController: NavHostController) {
         }
     }
 
-    // Warna Khusus (Fathiya)
     val CardGreen = Color(0xFFD9F2E6)
     val TextBlue = Color(0xFF0E4DA4)
 
@@ -126,7 +112,6 @@ fun HomeScreen(navController: NavHostController) {
             .fillMaxSize()
             .background(GrayBackground)
     ) {
-        // ================= HEADER (PUNYA KAMU - Ada Profil) =================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,12 +130,7 @@ fun HomeScreen(navController: NavHostController) {
                     fontSize = 22.sp
                 )
 
-                // Tombol Profil (Navigasi)
-                IconButton(
-                    onClick = {
-                        navController.navigate("profile")
-                    }
-                ) {
+                IconButton(onClick = { navController.navigate("profile") }) {
                     Icon(
                         imageVector = Icons.Default.AccountCircle,
                         contentDescription = "Profile",
@@ -162,14 +142,12 @@ fun HomeScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // ================= KARTU FISIK (PUNYA FATHIYA) =================
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // CARD KIRI: OLAHRAGA
             Card(
                 modifier = Modifier
                     .weight(1f)
@@ -187,7 +165,6 @@ fun HomeScreen(navController: NavHostController) {
                 }
             }
 
-            // CARD KANAN: BERAT BADAN
             Card(
                 modifier = Modifier
                     .weight(1f)
@@ -203,7 +180,6 @@ fun HomeScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // CARD TENGAH: TIDUR
         Card(
             Modifier
                 .fillMaxWidth()
@@ -225,7 +201,6 @@ fun HomeScreen(navController: NavHostController) {
             fontWeight = FontWeight.Bold
         )
 
-        // ================= LIST ARTIKEL (PUNYA KAMU - Real Data) =================
         when {
             isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -238,8 +213,12 @@ fun HomeScreen(navController: NavHostController) {
                 }
             }
             else -> {
+                // 🔹 PERBAIKAN SORTING: Samakan dengan EducationScreen
                 val sortedArticles = remember(articles) {
-                    articles.sortedByDescending { parseBackendDateToMillis(it.tanggal) }
+                    articles.sortedWith(
+                        compareByDescending<PublicArticleDto> { parseBackendDateToMillis(it.tanggal) }
+                            .thenByDescending { it.id }
+                    )
                 }
 
                 LazyColumn(
@@ -247,7 +226,8 @@ fun HomeScreen(navController: NavHostController) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(sortedArticles.take(3)) { article ->
+                    // Ambil 3 teratas yang sudah disortir
+                    items(sortedArticles.take(3), key = { "${it.jenis}_${it.id}" }) { article ->
 
                         val artikelTags = article.tag
                             ?.split(",")
@@ -267,7 +247,7 @@ fun HomeScreen(navController: NavHostController) {
                             title = article.judul,
                             readTime = article.waktuBaca ?: "-",
                             onReadMoreClick = {
-                                navController.navigate("article_detail/${article.id}?source=public")
+                                navController.navigate("article_detail/${article.id}?source=${article.jenis}")
                             },
                             isBookmarked = isBookmarked,
                             onBookmarkClick = {
@@ -285,10 +265,16 @@ fun HomeScreen(navController: NavHostController) {
     }
 }
 
-// Helper Date Parser (Punya Kamu)
+// 🔹 PERBAIKAN PARSER: Samakan list pattern dengan EducationScreen
 private fun parseBackendDateToMillis(raw: String?): Long {
     if (raw.isNullOrBlank()) return 0L
-    val patterns = listOf("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd")
+    val patterns = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd"
+    )
     for (pattern in patterns) {
         try {
             val sdf = SimpleDateFormat(pattern, Locale.US).apply {
@@ -298,7 +284,7 @@ private fun parseBackendDateToMillis(raw: String?): Long {
             if (date != null) return date.time
         } catch (_: Exception) {}
     }
-    return raw.hashCode().toLong()
+    return 0L
 }
 
 @Preview(showBackground = true, showSystemUi = true)

@@ -69,7 +69,14 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
         }
     }
 
-    val filteredArticlesSorted = filteredByCategory
+    // 🔹 PERBAIKAN FINAL: Gunakan sortedWith agar sorting lebih stabil
+    // Mengurutkan berdasarkan Waktu (Descending), jika waktu identik gunakan ID (Descending)
+    val filteredArticlesSorted = remember(filteredByCategory, searchQuery) {
+        filteredByCategory.sortedWith(
+            compareByDescending<PublicArticleDto> { parseBackendDateToMillis(it.tanggal) }
+                .thenByDescending { it.id }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -295,15 +302,15 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     }
 }
 
-// MODIFIKASI: Perbaikan logika parsing agar mendukung sorting DESC dengan akurat
+// UTILITY: parse date backend
 private fun parseBackendDateToMillis(raw: String?): Long {
     if (raw.isNullOrBlank()) return 0L
 
-    // 🔹 Tambahkan format SQL murni ke dalam list agar dikenali
     val patterns = listOf(
         "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
         "yyyy-MM-dd'T'HH:mm:ssXXX",
-        "yyyy-MM-dd HH:mm:ss", // Format umum MySQL
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd HH:mm:ss",
         "yyyy-MM-dd"
     )
 
@@ -316,8 +323,5 @@ private fun parseBackendDateToMillis(raw: String?): Long {
             if (date != null) return date.time
         } catch (_: Exception) {}
     }
-
-    // 🔹 PERBAIKAN KRUSIAL: Jika gagal parsing, jangan gunakan hashCode().
-    // Kembalikan 0 agar item yang tanggalnya tidak valid tidak mengacaukan posisi atas.
     return 0L
 }
