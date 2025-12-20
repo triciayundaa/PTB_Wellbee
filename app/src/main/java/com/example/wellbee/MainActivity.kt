@@ -61,7 +61,9 @@ class MainActivity : ComponentActivity() {
 
                             // 1. Modul Fisik (sudah ada)
                             if (targetScreen == "physical_health") {
-                                navController.navigate("physical_health_screen") {
+                                // SEBELUMNYA (SALAH): "physical_health_screen"
+                                // SEKARANG (BENAR): Gunakan nama dari NavGraph kamu
+                                navController.navigate("global_sport_screen") {
                                     launchSingleTop = true
                                 }
                             }
