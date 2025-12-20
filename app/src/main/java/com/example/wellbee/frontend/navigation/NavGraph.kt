@@ -27,6 +27,8 @@ import com.example.wellbee.frontend.screens.ResetPasswordScreen
 import com.example.wellbee.frontend.screens.MainScreen
 import com.example.wellbee.frontend.screens.ProfileScreen
 import com.example.wellbee.frontend.screens.Edukasi.ArticleDetailScreen
+import com.example.wellbee.frontend.screens.Mental.DetailDiaryScreen
+import com.example.wellbee.frontend.screens.Mental.JournalListScreen
 import com.example.wellbee.ui.theme.BluePrimary
 
 @Composable
@@ -58,8 +60,6 @@ fun NavGraph(navController: NavHostController) {
         }
 
         // --- RUTE KHUSUS NOTIFIKASI FISIK (FIXED: ANTI CRASH & TAMPILAN BENAR) ---
-        // --- RUTE KHUSUS NOTIFIKASI FISIK (SOLUSI FINAL) ---
-        // --- RUTE KHUSUS NOTIFIKASI FISIK (FIXED: WARNA & NAVIGASI) ---
         composable("global_sport_screen") {
             val localNavController = androidx.navigation.compose.rememberNavController()
 
@@ -70,12 +70,10 @@ fun NavGraph(navController: NavHostController) {
                     )
                 }
             ) { innerPadding ->
-                // PERBAIKAN WARNA DISINI 👇
                 androidx.compose.foundation.layout.Box(
                     modifier = androidx.compose.ui.Modifier
                         .padding(innerPadding)
                         .fillMaxSize()
-                        // Pakai warna background yang sama dengan PhysicalHealthScreen asli
                         .background(androidx.compose.ui.graphics.Color(0xFFF7F9FB))
                 ) {
                     com.example.wellbee.frontend.navigation.PhysicalNavGraph(
@@ -85,34 +83,43 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // --- 🛡️ JARING PENGAMAN NAVBAR (ANTI CRASH) ---
-        // --- 🛡️ JARING PENGAMAN NAVBAR (ANTI CRASH) ---
+        // --- RUTE KHUSUS NOTIFIKASI MENTAL (PENTING AGAR TIDAK CRASH SAAT KLIK NOTIF) ---
+        composable(
+            route = "detail_diary/{journalId}",
+            arguments = listOf(navArgument("journalId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val journalId = backStackEntry.arguments?.getInt("journalId") ?: -1
+            DetailDiaryScreen(
+                navController = navController,
+                journalId = journalId
+            )
+        }
 
-        // 1. TAMBAHAN BARU: Agar tombol HOME tidak crash
+        composable("journal_list") {
+            JournalListScreen(navController = navController)
+        }
+
+        // --- 🛡️ JARING PENGAMAN NAVBAR (ANTI CRASH) ---
         composable("home") {
             LaunchedEffect(Unit) {
-                // Arahkan ke "main" (Dashboard Utama)
                 navController.navigate("main") {
                     popUpTo("main") { inclusive = true }
                 }
             }
         }
 
-        // 2. Mental (Sudah ada)
         composable("mental") {
             LaunchedEffect(Unit) {
                 navController.navigate("main") { popUpTo("main") { inclusive = true } }
             }
         }
 
-        // 3. Education (Sudah ada)
         composable("education") {
             LaunchedEffect(Unit) {
                 navController.navigate("main") { popUpTo("main") { inclusive = true } }
             }
         }
 
-        // 4. Physical (Sudah ada)
         composable("physical") {
             LaunchedEffect(Unit) {
                 navController.navigate("global_sport_screen") { launchSingleTop = true }
@@ -120,7 +127,6 @@ fun NavGraph(navController: NavHostController) {
         }
 
         // --- DETAIL ARTIKEL (GLOBAL ROUTE) ---
-        // Menambahkan rute ini di sini agar bisa diakses langsung dari HomeScreen (Main)
         composable(
             route = "article_detail/{articleId}?source={source}",
             arguments = listOf(
@@ -135,7 +141,6 @@ fun NavGraph(navController: NavHostController) {
             val articleId = articleIdStr?.toIntOrNull()
             val source = backStackEntry.arguments?.getString("source") ?: "public"
 
-            // Menggunakan ViewModel edukasi untuk mencari data artikel
             val sharedViewModel = remember { EducationViewModel(context) }
 
             LaunchedEffect(articleId, source) {

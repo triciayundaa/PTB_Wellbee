@@ -2,7 +2,10 @@ package com.example.wellbee.frontend.screens.Mental
 
 import android.Manifest
 import android.app.DatePickerDialog
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Environment
@@ -19,9 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Mic
@@ -38,6 +41,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
@@ -63,11 +68,38 @@ fun DiaryScreen(navController: NavHostController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // --- Permissions ---
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     var selectedTrigger by remember { mutableStateOf("Pilih Pemicu") }
     var customTrigger by remember { mutableStateOf(TextFieldValue("")) }
     var diaryText by remember { mutableStateOf(TextFieldValue("")) }
     var expanded by remember { mutableStateOf(false) }
     var showSavedPopup by remember { mutableStateOf(false) }
+
+    // Date Picker State
+    val calendar = Calendar.getInstance()
+    var selectedDate by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) }
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val cal = Calendar.getInstance()
+            cal.set(year, month, dayOfMonth)
+            selectedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
 
     var photoPath by remember { mutableStateOf<String?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -75,24 +107,6 @@ fun DiaryScreen(navController: NavHostController) {
     var isRecording by remember { mutableStateOf(false) }
     var audioPath by remember { mutableStateOf<String?>(null) }
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
-
-    // Date Picker State
-    val calendar = Calendar.getInstance()
-    var selectedDate by remember {
-        mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
-    }
-
-    val datePickerDialog = DatePickerDialog(
-        context,
-        { _, year, month, dayOfMonth ->
-            val newDate = Calendar.getInstance()
-            newDate.set(year, month, dayOfMonth)
-            selectedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(newDate.time)
-        },
-        calendar.get(Calendar.YEAR),
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
-    )
 
     val triggers = listOf("Tugas", "Pertemanan", "Lainnya")
 
@@ -183,6 +197,43 @@ fun DiaryScreen(navController: NavHostController) {
         }
     }
 
+    fun showJournalNotification(context: Context, journalId: Int) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        // --- UPDATE PENTING UNTUK NAVIGASI ---
+        val intent = Intent(context, com.example.wellbee.MainActivity::class.java).apply {
+            // Gunakan flags ini agar Activity tidak di-restart total, tapi menggunakan instance yang ada (jika ada)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("target_screen", "mental_journal_detail")
+            putExtra("journal_id", journalId)
+        }
+
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(
+            context,
+            journalId, // RequestCode unik agar intent tidak tertimpa
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(context, "mental_channel_id")
+            .setSmallIcon(R.mipmap.ic_launcher_round) // Pastikan icon valid
+            .setContentTitle("Wellbee Journal")
+            .setContentText("Diary Anda berhasil disimpan! Tap untuk melihat detail. 📝")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+
+        with(NotificationManagerCompat.from(context)) {
+            notify(journalId, builder.build())
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
 
         Column(
@@ -232,34 +283,10 @@ fun DiaryScreen(navController: NavHostController) {
                     .animateContentSize()
             ) {
 
-                // Date Picker Input
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp)
-                        .clickable { datePickerDialog.show() }
-                        .background(Color(0xFFF0F4F8), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.DateRange,
-                        contentDescription = "Pilih Tanggal",
-                        tint = Color(0xFF105490)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Tanggal: $selectedDate",
-                        color = Color(0xFF105490),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 16.dp),
+                        .padding(top = 8.dp, bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
@@ -274,6 +301,28 @@ fun DiaryScreen(navController: NavHostController) {
                         tint = Color(0xFF105490)
                     )
                 }
+
+                // --- Date Picker Input ---
+                OutlinedTextField(
+                    value = selectedDate,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Tanggal Jurnal") },
+                    trailingIcon = {
+                        IconButton(onClick = { datePickerDialog.show() }) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = "Pilih Tanggal")
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .clickable { datePickerDialog.show() },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF105490),
+                        unfocusedBorderColor = Color(0xFF105490)
+                    )
+                )
 
                 Box(
                     modifier = Modifier
@@ -397,7 +446,7 @@ fun DiaryScreen(navController: NavHostController) {
                             if (selectedTrigger == "Lainnya") customTrigger.text else selectedTrigger
                         
                         // Gunakan tanggal yang dipilih dari DatePicker
-                        val finalDate = selectedDate
+                        val currentDate = selectedDate 
 
                         scope.launch {
                             val newJournal = MentalJournalEntity(
@@ -406,17 +455,21 @@ fun DiaryScreen(navController: NavHostController) {
                                 isiJurnal = diaryText.text,
                                 fotoPath = photoPath,
                                 audioPath = audioPath,
-                                tanggal = finalDate,
+                                tanggal = currentDate,
                                 isSynced = false
                             )
 
                             // 1. Simpan ke Database Lokal (Room)
+                            var newId: Long = 0
                             withContext(Dispatchers.IO) {
                                 val dao = AppDatabase.getInstance(context).mentalDao()
-                                dao.insertJournal(newJournal)
+                                newId = dao.insertJournal(newJournal)
                             }
 
-                            // 2. Kirim ke Server Backend (API)
+                            // 2. Kirim Notifikasi
+                            showJournalNotification(context, newId.toInt())
+
+                            // 3. Kirim ke Server Backend (API)
                             withContext(Dispatchers.IO) {
                                 try {
                                     val apiService = RetrofitClient.getInstance(context)
@@ -425,8 +478,8 @@ fun DiaryScreen(navController: NavHostController) {
                                         triggerLabel = triggerFinal,
                                         isiJurnal = diaryText.text,
                                         foto = photoPath,
-                                        audio = audioPath,
-                                        tanggal = finalDate
+                                        audio = audioPath, // Kirim audio ke backend
+                                        tanggal = currentDate
                                     )
                                     val response = apiService.postJournal(request)
                                     if (response.isSuccessful) {
@@ -442,7 +495,10 @@ fun DiaryScreen(navController: NavHostController) {
                             showSavedPopup = true
                             delay(1200)
                             showSavedPopup = false
-                            navController.navigate("journal_list")
+                            
+                            // Navigasi ke Detail (opsional, karena user juga bisa klik notif)
+                            // Jika ingin langsung pindah, bisa uncomment:
+                            // navController.navigate("detail_diary/${newId.toInt()}")
                         }
                     },
                     modifier = Modifier

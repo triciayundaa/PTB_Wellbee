@@ -1,138 +1,130 @@
 package com.example.wellbee
 
-import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
-import androidx.core.content.ContextCompat
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
-import androidx.work.*
 import com.example.wellbee.frontend.navigation.NavGraph
 import com.example.wellbee.ui.theme.WellbeeTheme
-import com.example.wellbee.worker.ReminderWorker
-import java.util.Calendar
-import java.util.concurrent.TimeUnit
+import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
 
-    // 1. Siapkan Launcher untuk minta izin Notifikasi (Wajib untuk Android 13/Tiramisu ke atas)
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            // Jika user klik "Allow", langsung jadwalkan notifikasi
-            setupDailyReminder()
-        }
-    }
+    // [MODIFIKASI] State untuk menyimpan Intent terbaru
+    // Ini memungkinkan LaunchedEffect di Compose merespons saat ada intent baru dari notifikasi
+    private var intentState by mutableStateOf<Intent?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Inisialisasi state dengan intent awal
+        intentState = intent
 
-        println("LOG_TEST: Aplikasi Wellbee Running!")
+        createNotificationChannel()
+        createMentalNotificationChannel() // Channel baru untuk Mental Health
 
-        FirebaseMessaging.getInstance().subscribeToTopic("new_articles")
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    // Gunakan println agar sama dengan LOG_TEST
-                    println("LOG_TEST: FCM Sukses subscribe ke topik new_articles")
-                } else {
-                    println("LOG_TEST: FCM Gagal subscribe: ${task.exception?.message}")
-                }
+        // (Opsional) Ambil FCM Token jika nanti pakai Firebase
+        FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                return@OnCompleteListener
             }
-
-        // 2. Cek Izin dan Jadwalkan Notifikasi
-        checkNotificationPermission()
-        setupDailyReminder()
+            val token = task.result
+            // Log.d("FCM", "Token: $token")
+        })
 
         setContent {
             WellbeeTheme {
-                val navController = rememberNavController()
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val navController = rememberNavController()
 
-                // --- 🔹 LOGIKA NAVIGASI NOTIFIKASI 🔹 ---
-                LaunchedEffect(intent) {
-                    // 1. Punya Teman (Edukasi) - JANGAN DIHAPUS
-                    val articleId = intent.getStringExtra("articleId")
-                    if (!articleId.isNullOrBlank()) {
-                        navController.navigate("article_detail/$articleId?source=public")
-                    }
+                    // [MODIFIKASI] Pantau 'intentState' bukannya 'intent' biasa
+                    LaunchedEffect(intentState) {
+                        intentState?.let { currentIntent ->
+                            val targetScreen = currentIntent.getStringExtra("target_screen")
 
-                    // 2. MODUL FISIK (UPDATE)
-                    val targetScreen = intent.getStringExtra("target_screen")
-
-                    if (targetScreen == "physical_health") {
-                        // KITA PAKAI RUTE JALAN TOL TADI
-                        navController.navigate("global_sport_screen") {
-                            launchSingleTop = true// Biar gak numpuk halamannya
+                            // 1. Modul Fisik (sudah ada)
+                            if (targetScreen == "physical_health") {
+                                navController.navigate("physical_health_screen") {
+                                    launchSingleTop = true
+                                }
+                            }
+                            
+                            // 2. Modul Mental - Detail Diary (BARU)
+                            else if (targetScreen == "mental_journal_detail") {
+                                val journalId = currentIntent.getIntExtra("journal_id", -1)
+                                if (journalId != -1) {
+                                    navController.navigate("detail_diary/$journalId") {
+                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    navController.navigate("journal_list")
+                                }
+                            }
+                            
+                            // 3. Modul Mental - Journal List (OPSIONAL)
+                            else if (targetScreen == "mental_journal_list") {
+                                navController.navigate("journal_list") {
+                                    launchSingleTop = true
+                                }
+                            }
                         }
                     }
-                }
-                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                    if (!task.isSuccessful) {
-                        println("❌ Gagal dapat token")
-                        return@addOnCompleteListener
-                    }
-                    val token = task.result
-                    println("🎫 TOKEN HP SAYA: $token") // <-- Cek Logcat bagian ini
-                }
 
-                NavGraph(navController = navController)
+                    NavGraph(navController = navController)
+                }
             }
         }
     }
 
-    // --- FUNGSI BANTUAN ---
-
-    private fun checkNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                // Munculkan popup minta izin
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
+    // [MODIFIKASI] Tangkap Intent baru saat aplikasi sedang berjalan
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent) // Update intent lama agar LaunchedEffect bisa menangkap articleId baru
+        setIntent(intent) // Update intent standar Android
+        intentState = intent // Update state Compose agar LaunchedEffect jalan lagi
     }
 
-    private fun setupDailyReminder() {
-        val workManager = WorkManager.getInstance(applicationContext)
-
-        val currentDate = Calendar.getInstance()
-        val dueDate = Calendar.getInstance()
-
-        // --- ATUR KE JAM 20:00 (8 MALAM) ---
-        dueDate.set(Calendar.HOUR_OF_DAY, 20)
-        dueDate.set(Calendar.MINUTE, 0)
-        dueDate.set(Calendar.SECOND, 0)
-
-        // Jika jam 20:00 sudah lewat, jadwalkan besok
-        if (dueDate.before(currentDate)) {
-            dueDate.add(Calendar.HOUR_OF_DAY, 24)
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Wellbee Notification"
+            val descriptionText = "Channel for general notifications"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel("wellbee_channel_id", name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
         }
+    }
 
-        val timeDiff = dueDate.timeInMillis - currentDate.timeInMillis
-
-        val dailyWorkRequest = PeriodicWorkRequestBuilder<ReminderWorker>(24, TimeUnit.HOURS)
-            .setInitialDelay(timeDiff, TimeUnit.MILLISECONDS)
-            .addTag("fisik_reminder")
-            .build()
-
-        workManager.enqueueUniquePeriodicWork(
-            "DailyFisikReminder",
-            ExistingPeriodicWorkPolicy.KEEP,
-            dailyWorkRequest
-        )
+    private fun createMentalNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Mental Health Diary"
+            val descriptionText = "Notifikasi saat jurnal disimpan"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel("mental_channel_id", name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 }
