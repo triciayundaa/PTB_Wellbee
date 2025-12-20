@@ -99,7 +99,13 @@ fun DetailDiaryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                IconButton(onClick = { navController.popBackStack() }) {
+                // TOMBOL BACK DIGANTI NAVIGASINYA KE JOURNAL LIST
+                IconButton(onClick = { 
+                    navController.navigate("journal_list") {
+                        // Bersihkan stack agar tidak looping
+                        popUpTo("journal_list") { inclusive = true }
+                    }
+                }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
@@ -299,7 +305,6 @@ fun DetailDiaryScreen(
                 )
             }
             
-            // Spacer bottom for scrolling
             Spacer(modifier = Modifier.height(40.dp))
         }
     }
