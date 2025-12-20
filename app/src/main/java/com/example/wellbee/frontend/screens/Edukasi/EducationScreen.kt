@@ -40,24 +40,20 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Semua") }
 
-    // Load data awal - Menggunakan Repository yang sudah diperbaiki (Clear cache & Sync)
+    // Load data awal
     LaunchedEffect(Unit) {
         viewModel.loadCategories()
         viewModel.loadBookmarks()
         viewModel.loadArticles()
     }
 
-    /**
-     * LOGIKA SEARCH:
-     * Memantau perubahan searchQuery. Jika kosong, panggil loadArticles() untuk reset list
-     */
+    // LOGIKA SEARCH
     LaunchedEffect(searchQuery) {
         if (searchQuery.isBlank()) {
             viewModel.loadArticles()
         }
     }
 
-    // Single Source of Truth dari ViewModel
     val articles: List<PublicArticleDto> = viewModel.articles
     val isLoading = viewModel.isLoading
     val errorMessage = viewModel.errorMessage
@@ -65,7 +61,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     val categories = remember(backendCategories) { listOf("Semua") + backendCategories }
     val bookmarks = viewModel.bookmarks
 
-    // Filter berdasarkan kategori (Filtering ringan di sisi UI)
+    // Filter berdasarkan kategori
     val filteredByCategory = remember(articles, selectedCategory) {
         articles.filter { article ->
             selectedCategory == "Semua" ||
@@ -73,11 +69,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
         }
     }
 
-    // Sortir terbaru berdasarkan tanggal backend
-    val filteredArticlesSorted = remember(filteredByCategory, searchQuery) {
-        filteredByCategory
-            .sortedByDescending { parseBackendDateToMillis(it.tanggal) }
-    }
+    val filteredArticlesSorted = filteredByCategory
 
     Column(
         modifier = Modifier
@@ -202,7 +194,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                 // BUTTON BUAT ARTIKEL
                 OutlinedButton(
                     onClick = {
-                        viewModel.clearDraft() // Membersihkan draf sebelum memulai baru
+                        viewModel.clearDraft()
                         navController.navigate("create_article_meta")
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -268,14 +260,13 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                     }
                 }
             } else {
-                items(filteredArticlesSorted, key = { it.id }) { article ->
+                items(filteredArticlesSorted, key = { "${it.jenis}_${it.id}" }) { article ->
                     val artikelTags = article.tag
                         ?.split(",")
                         ?.map { it.trim() }
                         ?.filter { it.isNotEmpty() }
                         ?: emptyList()
 
-                    // Mengecek apakah artikel ini ada di daftar bookmark
                     val existingBookmark = bookmarks.find { b ->
                         b.artikelId == article.id && b.jenis == article.jenis
                     }
@@ -295,8 +286,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
                             }
                         },
                         onReadMoreClick = {
-                            // MODIFIKASI: Navigasi menggunakan rute global yang terdaftar di NavGraph utama
-                            navController.navigate("article_detail/${article.id}?source=public")
+                            navController.navigate("article_detail/${article.id}?source=${article.jenis}")
                         }
                     )
                 }
@@ -305,17 +295,18 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     }
 }
 
-// ==========================
-// UTILITY: parse date backend
-// ==========================
+// MODIFIKASI: Perbaikan logika parsing agar mendukung sorting DESC dengan akurat
 private fun parseBackendDateToMillis(raw: String?): Long {
     if (raw.isNullOrBlank()) return 0L
+
+    // 🔹 Tambahkan format SQL murni ke dalam list agar dikenali
     val patterns = listOf(
         "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
         "yyyy-MM-dd'T'HH:mm:ssXXX",
-        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd HH:mm:ss", // Format umum MySQL
         "yyyy-MM-dd"
     )
+
     for (pattern in patterns) {
         try {
             val sdf = SimpleDateFormat(pattern, Locale.US).apply {
@@ -325,5 +316,8 @@ private fun parseBackendDateToMillis(raw: String?): Long {
             if (date != null) return date.time
         } catch (_: Exception) {}
     }
-    return raw.hashCode().toLong()
+
+    // 🔹 PERBAIKAN KRUSIAL: Jika gagal parsing, jangan gunakan hashCode().
+    // Kembalikan 0 agar item yang tanggalnya tidak valid tidak mengacaukan posisi atas.
+    return 0L
 }
