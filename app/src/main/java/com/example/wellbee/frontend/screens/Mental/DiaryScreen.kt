@@ -1,6 +1,16 @@
-package com.example.wellbee.frontend.screens.mental
+package com.example.wellbee.frontend.screens.Mental
 
+import android.Manifest
+import android.app.DatePickerDialog
+import android.content.Context
+import android.media.MediaRecorder
+import android.net.Uri
+import android.os.Environment
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,7 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,20 +31,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
+import coil.compose.rememberAsyncImagePainter
 import com.example.wellbee.R
+import com.example.wellbee.data.JournalRequest
+import com.example.wellbee.data.RetrofitClient
+import com.example.wellbee.data.local.AppDatabase
+import com.example.wellbee.data.local.MentalJournalEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryScreen(navController: NavHostController) {
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var selectedTrigger by remember { mutableStateOf("Pilih Pemicu") }
     var customTrigger by remember { mutableStateOf(TextFieldValue("")) }
@@ -40,8 +69,119 @@ fun DiaryScreen(navController: NavHostController) {
     var expanded by remember { mutableStateOf(false) }
     var showSavedPopup by remember { mutableStateOf(false) }
 
+    var photoPath by remember { mutableStateOf<String?>(null) }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    var isRecording by remember { mutableStateOf(false) }
+    var audioPath by remember { mutableStateOf<String?>(null) }
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+
+    // Date Picker State
+    val calendar = Calendar.getInstance()
+    var selectedDate by remember {
+        mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
+    }
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val newDate = Calendar.getInstance()
+            newDate.set(year, month, dayOfMonth)
+            selectedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(newDate.time)
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
     val triggers = listOf("Tugas", "Pertemanan", "Lainnya")
-    val scope = rememberCoroutineScope()
+
+    fun createImageFile(context: Context): File {
+        val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        return File.createTempFile(
+            "JOURNAL_${System.currentTimeMillis()}_",
+            ".jpg",
+            storageDir
+        )
+    }
+
+    fun createAudioFile(context: Context): File {
+        val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+        return File.createTempFile(
+            "VOICE_${System.currentTimeMillis()}_",
+            ".m4a",
+            storageDir
+        )
+    }
+
+    fun stopRecordingSafely() {
+        if (!isRecording) return
+        try {
+            recorder?.apply {
+                stop()
+                release()
+            }
+        } catch (_: Exception) {
+        } finally {
+            recorder = null
+            isRecording = false
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { stopRecordingSafely() }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (!success) {
+            photoPath = null
+            pendingCameraUri = null
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            pendingCameraUri?.let { cameraLauncher.launch(it) }
+        } else {
+            photoPath = null
+            pendingCameraUri = null
+        }
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val audioFile = createAudioFile(context)
+            audioPath = audioFile.absolutePath
+
+            try {
+                recorder = MediaRecorder().apply {
+                    setAudioSource(MediaRecorder.AudioSource.MIC)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    setOutputFile(audioPath)
+                    prepare()
+                    start()
+                }
+                isRecording = true
+            } catch (_: Exception) {
+                try {
+                    recorder?.release()
+                } catch (_: Exception) {}
+                recorder = null
+                isRecording = false
+                audioPath = null
+            }
+        } else {
+            isRecording = false
+            audioPath = null
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -76,19 +216,15 @@ fun DiaryScreen(navController: NavHostController) {
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(40.dp))
+                    IconButton(onClick = { navController.navigate("journal_list") }) {
+                        Icon(
+                            imageVector = Icons.Filled.List,
+                            contentDescription = "Lihat Jurnal",
+                            tint = Color.White
+                        )
+                    }
                 }
             }
-
-            OutlinedTextField(
-                value = "",
-                onValueChange = {},
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("Search here...") },
-                shape = RoundedCornerShape(30.dp)
-            )
 
             Column(
                 modifier = Modifier
@@ -96,10 +232,34 @@ fun DiaryScreen(navController: NavHostController) {
                     .animateContentSize()
             ) {
 
+                // Date Picker Input
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 16.dp),
+                        .padding(top = 16.dp)
+                        .clickable { datePickerDialog.show() }
+                        .background(Color(0xFFF0F4F8), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.DateRange,
+                        contentDescription = "Pilih Tanggal",
+                        tint = Color(0xFF105490)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Tanggal: $selectedDate",
+                        color = Color(0xFF105490),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
@@ -144,25 +304,15 @@ fun DiaryScreen(navController: NavHostController) {
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
-                    modifier = Modifier
-                        .background(Color(0xFFD9F2E6))
+                    modifier = Modifier.background(Color(0xFFD9F2E6))
                 ) {
                     triggers.forEach { trigger ->
                         DropdownMenuItem(
-                            text = {
-                                Text(
-                                    trigger,
-                                    color = Color(0xFF105490),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
+                            text = { Text(trigger, color = Color(0xFF105490)) },
                             onClick = {
                                 selectedTrigger = trigger
                                 expanded = false
-                                if (trigger != "Lainnya") {
-                                    customTrigger = TextFieldValue("")
-                                }
+                                if (trigger != "Lainnya") customTrigger = TextFieldValue("")
                             }
                         )
                     }
@@ -173,9 +323,7 @@ fun DiaryScreen(navController: NavHostController) {
                     TextField(
                         value = customTrigger,
                         onValueChange = { customTrigger = it },
-                        placeholder = {
-                            Text("Lainnya...", color = Color(0xFF7A8D92))
-                        },
+                        placeholder = { Text("Lainnya...", color = Color(0xFF7A8D92)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xFFD9F2E6), RoundedCornerShape(20.dp)),
@@ -219,13 +367,80 @@ fun DiaryScreen(navController: NavHostController) {
                     )
                 )
 
+                photoPath?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Image(
+                        painter = rememberAsyncImagePainter(File(it)),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                    )
+                }
+
+                audioPath?.let {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = if (isRecording) "Recording..." else "Voice note tersimpan",
+                        color = if (isRecording) Color.Red else Color(0xFF105490),
+                        fontSize = 14.sp
+                    )
+                }
+
                 Spacer(Modifier.height(20.dp))
 
                 Button(
                     onClick = {
-                        showSavedPopup = true
+                        stopRecordingSafely()
+
+                        val triggerFinal =
+                            if (selectedTrigger == "Lainnya") customTrigger.text else selectedTrigger
+                        
+                        // Gunakan tanggal yang dipilih dari DatePicker
+                        val finalDate = selectedDate
+
                         scope.launch {
-                            delay(2000)
+                            val newJournal = MentalJournalEntity(
+                                userId = 1,
+                                triggerLabel = triggerFinal,
+                                isiJurnal = diaryText.text,
+                                fotoPath = photoPath,
+                                audioPath = audioPath,
+                                tanggal = finalDate,
+                                isSynced = false
+                            )
+
+                            // 1. Simpan ke Database Lokal (Room)
+                            withContext(Dispatchers.IO) {
+                                val dao = AppDatabase.getInstance(context).mentalDao()
+                                dao.insertJournal(newJournal)
+                            }
+
+                            // 2. Kirim ke Server Backend (API)
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val apiService = RetrofitClient.getInstance(context)
+                                    val request = JournalRequest(
+                                        userId = 1,
+                                        triggerLabel = triggerFinal,
+                                        isiJurnal = diaryText.text,
+                                        foto = photoPath,
+                                        audio = audioPath,
+                                        tanggal = finalDate
+                                    )
+                                    val response = apiService.postJournal(request)
+                                    if (response.isSuccessful) {
+                                        Log.d("DiaryScreen", "Sukses upload jurnal ke server")
+                                    } else {
+                                        Log.e("DiaryScreen", "Gagal upload: ${response.code()}")
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("DiaryScreen", "Error network: ${e.message}")
+                                }
+                            }
+
+                            showSavedPopup = true
+                            delay(1200)
                             showSavedPopup = false
                             navController.navigate("journal_list")
                         }
@@ -246,7 +461,18 @@ fun DiaryScreen(navController: NavHostController) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Button(
-                        onClick = {},
+                        onClick = {
+                            val photoFile = createImageFile(context)
+                            photoPath = photoFile.absolutePath
+
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.provider",
+                                photoFile
+                            )
+                            pendingCameraUri = uri
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp),
@@ -261,16 +487,31 @@ fun DiaryScreen(navController: NavHostController) {
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Button(
-                        onClick = {},
+                        onClick = {
+                            if (!isRecording) {
+                                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            } else {
+                                stopRecordingSafely()
+                            }
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp),
                         shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(Color(0xFFD9F2E6))
+                        colors = ButtonDefaults.buttonColors(
+                            if (isRecording) Color(0xFFFFCDD2) else Color(0xFFD9F2E6)
+                        )
                     ) {
-                        Icon(Icons.Filled.Mic, null, tint = Color(0xFF105490))
+                        Icon(
+                            Icons.Filled.Mic,
+                            null,
+                            tint = if (isRecording) Color.Red else Color(0xFF105490)
+                        )
                         Spacer(Modifier.width(6.dp))
-                        Text("Voice", color = Color(0xFF105490))
+                        Text(
+                            if (isRecording) "Stop" else "Voice",
+                            color = if (isRecording) Color.Red else Color(0xFF105490)
+                        )
                     }
                 }
 

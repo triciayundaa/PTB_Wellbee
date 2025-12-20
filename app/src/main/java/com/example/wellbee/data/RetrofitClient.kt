@@ -8,7 +8,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 object RetrofitClient {
     // Ganti 10.0.2.2 jika pakai Emulator.
     // Ganti dengan IP Laptop (misal 192.168.1.x) jika pakai HP fisik.
-    private const val BASE_URL = "http://192.168.110.218:3000/"
+    private const val BASE_URL = "http://192.168.1.9:3000/"
 
     fun getInstance(context: Context): ApiService {
         val client = OkHttpClient.Builder()

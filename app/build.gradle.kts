@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    kotlin("kapt")
 }
 
 android {
@@ -58,24 +59,27 @@ dependencies {
 
     implementation("androidx.navigation:navigation-compose:2.8.3")
 
-    // ==== FROM HEAD (MAIN) ====
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.material:material-icons-extended:1.6.8")
+    implementation("androidx.compose.animation:animation")
+
     implementation("com.patrykandpatrick.vico:compose:1.14.0")
     implementation("com.patrykandpatrick.vico:core:1.14.0")
     implementation("com.patrykandpatrick.vico:views:1.14.0")
     implementation("com.google.accompanist:accompanist-navigation-animation:0.32.0")
-    implementation("androidx.compose.animation:animation")
 
-    //backend
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    // ==== FROM FATHIYA ====
-    implementation("androidx.compose.material3:material3:1.3.0")
-    implementation("androidx.compose.material:material-icons-extended:1.6.8")
+
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -85,4 +89,3 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
-

@@ -1,5 +1,6 @@
 package com.example.wellbee.frontend.screens.Mental
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,26 +9,112 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.example.wellbee.R
+import com.example.wellbee.data.local.AppDatabase
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalListScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val dao = remember { AppDatabase.getInstance(context).mentalDao() }
+    val scope = rememberCoroutineScope()
+    
+    // Mengambil data jurnal dari database
+    val journals by dao.observeJournalsByUser(userId = 1).collectAsState(initial = emptyList())
+
+    // State untuk pencarian, delete, dan filter tanggal
+    var searchQuery by remember { mutableStateOf("") }
+    var showDeleteDialog by remember { mutableStateOf<Int?>(null) }
+    var selectedFilterDate by remember { mutableStateOf<String?>(null) }
+
+    // Date Picker Dialog untuk filter
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val newDate = Calendar.getInstance()
+            newDate.set(year, month, dayOfMonth)
+            selectedFilterDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(newDate.time)
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
+    // Filter jurnal berdasarkan query pencarian DAN tanggal
+    val filteredJournals = remember(journals, searchQuery, selectedFilterDate) {
+        journals.filter { journal ->
+            // Filter berdasarkan tanggal jika ada
+            val matchesDate = if (selectedFilterDate != null) {
+                journal.tanggal == selectedFilterDate
+            } else {
+                true
+            }
+
+            // Filter berdasarkan teks search
+            val matchesSearch = if (searchQuery.isNotBlank()) {
+                (journal.triggerLabel?.contains(searchQuery, ignoreCase = true) == true) ||
+                (journal.isiJurnal.contains(searchQuery, ignoreCase = true)) ||
+                (journal.tanggal.contains(searchQuery, ignoreCase = true))
+            } else {
+                true
+            }
+
+            matchesDate && matchesSearch
+        }
+    }
+
+    // Pop-up Konfirmasi Hapus
+    if (showDeleteDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("Hapus Jurnal") },
+            text = { Text("Apakah Anda yakin ingin menghapus jurnal ini? Data yang dihapus tidak dapat dikembalikan.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            dao.deleteJournal(showDeleteDialog!!)
+                            showDeleteDialog = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Hapus", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("Batal", color = Color(0xFF105490))
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
+        // Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -42,7 +129,7 @@ fun JournalListScreen(navController: NavHostController) {
                 IconButton(onClick = { navController.popBackStack() }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "",
+                        contentDescription = "Back",
                         tint = Color.White
                     )
                 }
@@ -56,14 +143,22 @@ fun JournalListScreen(navController: NavHostController) {
             }
         }
 
+        // Search Bar
         OutlinedTextField(
-            value = "",
-            onValueChange = {},
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            placeholder = { Text("Search here...") },
-            shape = RoundedCornerShape(30.dp)
+            placeholder = { Text("Cari jurnal (judul, isi, tanggal)...") },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
+            },
+            shape = RoundedCornerShape(30.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF105490),
+                unfocusedBorderColor = Color.LightGray
+            )
         )
 
         Column(
@@ -84,81 +179,106 @@ fun JournalListScreen(navController: NavHostController) {
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF105490)
                 )
+                // Filter by Date Button
                 Button(
-                    onClick = {},
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD9F2E6)),
+                    onClick = { 
+                        if (selectedFilterDate == null) {
+                            datePickerDialog.show() 
+                        } else {
+                            selectedFilterDate = null // Clear filter if clicked again
+                        }
+                    }, 
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selectedFilterDate != null) Color(0xFF105490) else Color(0xFFD9F2E6)
+                    ),
                     shape = RoundedCornerShape(20.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Text("Filter by", color = Color(0xFF105490))
+                    Icon(
+                        imageVector = Icons.Default.DateRange, 
+                        contentDescription = null,
+                        tint = if (selectedFilterDate != null) Color.White else Color(0xFF105490),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (selectedFilterDate != null) selectedFilterDate!! else "Filter Date", 
+                        color = if (selectedFilterDate != null) Color.White else Color(0xFF105490),
+                        fontSize = 12.sp
+                    )
                 }
             }
 
-            val journals = listOf("Ujian", "Kisah Cinta", "Pertemanan", "Tugas")
-
-            journals.forEach { title ->
-                Card(
+            if (filteredJournals.isEmpty()) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                        .clickable {
-                            navController.navigate("detail_diary/$title")
-                        },
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(4.dp)
+                        .padding(top = 40.dp), 
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Text(
+                        if (searchQuery.isNotEmpty() || selectedFilterDate != null) "Tidak ditemukan hasil." else "Belum ada jurnal.", 
+                        color = Color.Gray
+                    )
+                }
+            } else {
+                filteredJournals.forEach { journal ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .clickable {
+                                navController.navigate("detail_diary/${journal.id}")
+                            },
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_diary),
-                            contentDescription = "",
-                            tint = Color(0xFF105490),
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF105490))
-                            Text("10/21/2025", fontSize = 12.sp, color = Color.Gray)
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Description,
+                                contentDescription = null,
+                                tint = Color(0xFF105490),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            
+                            // Column mengambil sisa ruang agar tombol hapus terdorong ke kanan
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = journal.triggerLabel ?: "No Title",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF105490)
+                                )
+                                Text(
+                                    text = journal.tanggal,
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = if (journal.isiJurnal.length > 30) journal.isiJurnal.take(30) + "..." else journal.isiJurnal,
+                                    fontSize = 14.sp,
+                                    color = Color.Black,
+                                    maxLines = 1
+                                )
+                            }
+                            
+                            // Tombol Delete
+                            IconButton(onClick = { showDeleteDialog = journal.id }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Hapus",
+                                    tint = Color.Red
+                                )
+                            }
                         }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(80.dp))
         }
-    }
-}
-
-@Composable
-fun JournalDetailScreen(navController: NavHostController, title: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(20.dp)
-    ) {
-        IconButton(onClick = { navController.popBackStack() }) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "",
-                tint = Color(0xFF105490)
-            )
-        }
-
-        Text(
-            text = title,
-            fontSize = 26.sp,
-            color = Color(0xFF105490),
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Detail jurnal untuk \"$title\".",
-            fontSize = 16.sp,
-            color = Color.DarkGray
-        )
     }
 }
