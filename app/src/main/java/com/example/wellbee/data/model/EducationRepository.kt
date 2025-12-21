@@ -125,7 +125,7 @@ class EducationRepository(private val context: Context) {
         val bytes = stream.readBytes()
         stream.close()
         val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-        val part = MultipartBody.Part.createFormData("image", "art_${System.currentTimeMillis()}.jpg", requestBody)
+        val part = MultipartBody.Part.createFormData("gambar", "art_${System.currentTimeMillis()}.jpg", requestBody)
         val response = api.uploadImage(part)
         return response.body()?.url ?: throw Exception("Fail")
     }
@@ -156,7 +156,8 @@ class EducationRepository(private val context: Context) {
             val stream = context.contentResolver.openInputStream(imageUri)
             val bytes = stream!!.readBytes()
             stream.close()
-            MultipartBody.Part.createFormData("gambar", "img.jpg", bytes.toRequestBody("image/*".toMediaTypeOrNull()))
+            MultipartBody.Part.createFormData("gambar", "update_img.jpg", bytes.toRequestBody("image/*".toMediaTypeOrNull()))
+
         } else null
 
         val response = api.updateMyArticle(id, judul.toPart(), isi.toPart(), kategori.toPart(), waktuBaca.toPart(), tag.toPart(), gambarPart)

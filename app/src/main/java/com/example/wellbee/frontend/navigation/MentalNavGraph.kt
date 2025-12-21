@@ -7,11 +7,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-// Corrected import: The package is uppercase 'Mental' in the file system
-import com.example.wellbee.frontend.screens.Mental.DiaryScreen 
+import com.example.wellbee.frontend.screens.Mental.DiaryScreen
 import com.example.wellbee.frontend.screens.Mental.MentalHealthScreen
 import com.example.wellbee.frontend.screens.Mental.JournalListScreen
 import com.example.wellbee.frontend.screens.Mental.DetailDiaryScreen
+
 
 @Composable
 fun MentalNavGraph(parentNavController: NavHostController) {

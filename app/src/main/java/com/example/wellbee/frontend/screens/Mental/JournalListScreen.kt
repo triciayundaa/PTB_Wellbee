@@ -224,6 +224,7 @@ fun JournalListScreen(navController: NavHostController) {
             } else {
                 filteredJournals.forEach { journal ->
                     Card(
+
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)

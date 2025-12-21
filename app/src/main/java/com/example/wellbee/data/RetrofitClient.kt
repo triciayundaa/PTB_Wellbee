@@ -7,7 +7,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
 
-    const val BASE_URL = "http://192.168.110.130:3000/"
+    const val BASE_URL = "https://backend-ptb-well-bee.vercel.app/"
 
     fun getInstance(context: Context): ApiService {
         val client = OkHttpClient.Builder()

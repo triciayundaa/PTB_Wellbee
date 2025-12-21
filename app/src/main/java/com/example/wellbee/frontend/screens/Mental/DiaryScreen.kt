@@ -370,6 +370,7 @@ fun DiaryScreen(navController: NavHostController) {
                 if (selectedTrigger == "Lainnya") {
                     Spacer(Modifier.height(12.dp))
                     TextField(
+
                         value = customTrigger,
                         onValueChange = { customTrigger = it },
                         placeholder = { Text("Lainnya...", color = Color(0xFF7A8D92)) },

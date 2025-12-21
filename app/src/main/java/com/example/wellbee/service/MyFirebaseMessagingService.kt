@@ -29,12 +29,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, message: String, articleId: String?, targetScreen: String?) {
-        val channelId = "wellbee_notifications"
+        val channelId = "wellbee_channel_id"
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Buat Channel (Wajib untuk Android 8+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Wellbee Updates", NotificationManager.IMPORTANCE_HIGH)
+            val channel = NotificationChannel(channelId, "Wellbee Notification", NotificationManager.IMPORTANCE_HIGH)
             manager.createNotificationChannel(channel)
         }
 
@@ -58,7 +58,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         // Bangun Notifikasi
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Pastikan icon ini ada
+            .setSmallIcon(R.drawable.logo) // Pastikan icon ini ada
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
