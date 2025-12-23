@@ -29,7 +29,6 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
 
-    // [BARU] Launcher untuk meminta izin notifikasi secara otomatis di Android 13+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -50,7 +49,6 @@ class MainActivity : ComponentActivity() {
         createNotificationChannel()
         createMentalNotificationChannel()
 
-        // 1. [BARU] Logika Request Permission (Wajib untuk Android 13/Tiramisu ke atas)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED) {
@@ -58,8 +56,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 2. [BARU] Subscribe ke Topic 'new_articles'
-        // Agar HP ini bisa menerima notifikasi broadcast artikel dari backend
         FirebaseMessaging.getInstance().subscribeToTopic("new_articles")
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
@@ -69,13 +65,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-        // Ambil FCM Token untuk notifikasi personal (Olahraga/Fisik)
         FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
             if (!task.isSuccessful) {
                 return@OnCompleteListener
             }
             val token = task.result
-            Log.d("FCM", "Token HP: $token") // Token ini yang masuk ke log VS Code anda
+            Log.d("FCM", "Token HP: $token")
         })
 
         setContent {
@@ -90,14 +85,12 @@ class MainActivity : ComponentActivity() {
                         intentState?.let { currentIntent ->
                             val targetScreen = currentIntent.getStringExtra("target_screen")
 
-                            // 1. Modul Fisik
                             if (targetScreen == "physical_health") {
                                 navController.navigate("global_sport_screen") {
                                     launchSingleTop = true
                                 }
                             }
 
-                            // 2. Modul Mental - Detail Diary
                             else if (targetScreen == "mental_journal_detail") {
                                 val journalId = currentIntent.getIntExtra("journal_id", -1)
                                 if (journalId != -1) {
@@ -109,14 +102,12 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // 3. Modul Mental - Journal List
                             else if (targetScreen == "mental_journal_list") {
                                 navController.navigate("journal_list") {
                                     launchSingleTop = true
                                 }
                             }
 
-                            // 4. [BARU] Modul Edukasi - Detail Artikel
                             else if (targetScreen == "education_detail") {
                                 val articleId = currentIntent.getStringExtra("articleId")
                                 if (articleId != null) {

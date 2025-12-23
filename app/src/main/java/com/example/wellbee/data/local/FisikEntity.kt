@@ -3,13 +3,8 @@ package com.example.wellbee.data.local
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-// =========================================
-//  TABEL SPORT (LOCAL CACHE)
-// =========================================
 @Entity(tableName = "sport_history")
 data class SportEntity(
-    // 🔥 PERBAIKAN: Gunakan ID dari server sebagai Primary Key
-    // Hapus 'localId' agar tidak terjadi duplikasi data saat sync
     @PrimaryKey(autoGenerate = false)
     val id: Int,
 
@@ -22,16 +17,12 @@ data class SportEntity(
 )
 
 data class DailySportSum(
-    val date: String,   // format: yyyy-MM-dd
-    val total: Int      // total durasiMenit per hari
+    val date: String,
+    val total: Int
 )
 
-// =========================================
-//  TABEL SLEEP
-// =========================================
 @Entity(tableName = "sleep_history")
 data class SleepEntity(
-    // 🔥 PERBAIKAN: ID server sebagai Primary Key
     @PrimaryKey(autoGenerate = false)
     val id: Int,
 
@@ -43,12 +34,8 @@ data class SleepEntity(
     val tanggal: String
 )
 
-// =========================================
-//  TABEL WEIGHT
-// =========================================
 @Entity(tableName = "weight_history")
 data class WeightEntity(
-    // 🔥 PERBAIKAN: ID server sebagai Primary Key
     @PrimaryKey(autoGenerate = false)
     val id: Int,
 

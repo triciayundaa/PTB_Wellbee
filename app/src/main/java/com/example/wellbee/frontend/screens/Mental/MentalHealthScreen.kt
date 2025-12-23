@@ -39,7 +39,6 @@ fun MentalHealthScreen(navController: NavHostController) {
     val dao = remember { AppDatabase.getInstance(context).mentalDao() }
     val scope = rememberCoroutineScope()
 
-    // Mengambil data mood & jurnal untuk sinkronisasi flow
     val moodList by dao.observeMoodByUser(1).collectAsState(initial = emptyList())
     val journalList by dao.observeJournalsByUser(1).collectAsState(initial = emptyList())
 
@@ -51,22 +50,17 @@ fun MentalHealthScreen(navController: NavHostController) {
         "😡" to "Marah"
     )
 
-    // State UI
     var selectedEmoji by remember { mutableStateOf<Pair<String, String>?>(null) }
     var moodScale by remember { mutableFloatStateOf(5f) }
-    
-    // Logic Baru: Hanya bandingkan data HARI INI
+
     val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     val moodsToday = moodList.count { it.tanggal == today }
     val journalsToday = journalList.count { it.tanggal == today }
-    
-    // Jika mood hari ini > jurnal hari ini -> Pending (Mode Update)
+
     val isPendingMood = moodsToday > journalsToday
-    
-    // State ID mood yang sedang aktif
+
     var currentMoodId by remember { mutableStateOf<Int?>(null) }
-    
-    // Chart Data Logic (Reset every 7 entries)
+
     val chartData = remember(moodList) {
         val sortedList = moodList.sortedBy { it.tanggal }
         val batchSize = 7
@@ -75,7 +69,7 @@ fun MentalHealthScreen(navController: NavHostController) {
         if (total == 0) {
             emptyList()
         } else {
-            // Ambil batch terakhir
+
             val startIndex = ((total - 1) / batchSize) * batchSize
             sortedList.drop(startIndex)
         }
@@ -100,11 +94,9 @@ fun MentalHealthScreen(navController: NavHostController) {
     var selectedRange by remember { mutableStateOf("7 Days") }
     val dropdownItems = listOf("7 Days", "Today")
 
-    // Reset UI Logic
     LaunchedEffect(moodList, journalList) {
         if (isPendingMood) {
-            // Ada mood pending -> Load data ke form & set mode Update
-            // Ambil mood TERAKHIR HARI INI
+
             val lastMoodToday = moodList.filter { it.tanggal == today }.maxByOrNull { it.id } 
             if (lastMoodToday != null) {
                 currentMoodId = lastMoodToday.id
@@ -112,7 +104,7 @@ fun MentalHealthScreen(navController: NavHostController) {
                 moodScale = lastMoodToday.moodScale.toFloat()
             }
         } else {
-            // Siap input baru (mood == journal) -> Reset form
+
             currentMoodId = null
             selectedEmoji = null
             moodScale = 5f
@@ -124,7 +116,7 @@ fun MentalHealthScreen(navController: NavHostController) {
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -156,11 +148,6 @@ fun MentalHealthScreen(navController: NavHostController) {
                 .padding(horizontal = 16.dp)
                 .animateContentSize()
         ) {
-            
-            // === FORM INPUT MOOD ===
-            // Form selalu tampil. 
-            // Jika isPendingMood = TRUE -> Form terisi data terakhir & Tombol "Update Mood"
-            // Jika isPendingMood = FALSE -> Form kosong & Tombol "Save Mood"
             
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFD9F2E6)),
@@ -199,7 +186,6 @@ fun MentalHealthScreen(navController: NavHostController) {
                 }
             }
 
-            // Slider & Save/Update Button (Muncul jika emoji dipilih)
             if (selectedEmoji != null) {
                 Spacer(Modifier.height(20.dp))
 
@@ -247,7 +233,7 @@ fun MentalHealthScreen(navController: NavHostController) {
                                     val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                                     
                                     if (isPendingMood && currentMoodId != null) {
-                                        // UPDATE MOOD
+
                                         val updatedMood = MentalMoodEntity(
                                             id = currentMoodId!!,
                                             userId = 1,
@@ -258,7 +244,7 @@ fun MentalHealthScreen(navController: NavHostController) {
                                         )
                                         dao.updateMood(updatedMood)
                                     } else {
-                                        // SAVE NEW MOOD
+
                                         val newMood = MentalMoodEntity(
                                             userId = 1,
                                             emoji = emoji,
@@ -268,7 +254,6 @@ fun MentalHealthScreen(navController: NavHostController) {
                                         )
                                         dao.insertMood(newMood)
                                     }
-                                    // UI otomatis refresh karena observe moodList
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF105490)),
@@ -283,7 +268,6 @@ fun MentalHealthScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(28.dp))
 
-            // === Header Grafik ===
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -320,7 +304,6 @@ fun MentalHealthScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(12.dp))
 
-            // === Grafik Line Chart ===
             if (chartData.isNotEmpty()) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -350,7 +333,6 @@ fun MentalHealthScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(24.dp))
 
-            // === Tombol Navigasi ===
             Button(
                 onClick = { navController.navigate("diary") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD9F2E6)),
@@ -380,7 +362,6 @@ fun MentalHealthScreen(navController: NavHostController) {
     }
 }
 
-// === Custom Chart Component ===
 @Composable
 fun LineChartViewMental(xLabels: List<String>, yValues: List<Double>, label: String) {
     AndroidView(
@@ -421,8 +402,7 @@ fun LineChartViewMental(xLabels: List<String>, yValues: List<Double>, label: Str
             val lineData = LineData(dataSet)
             chart.data = lineData
             chart.xAxis.valueFormatter = com.github.mikephil.charting.formatter.IndexAxisValueFormatter(xLabels)
-            
-            // Refresh chart
+
             chart.notifyDataSetChanged()
             chart.invalidate()
         },

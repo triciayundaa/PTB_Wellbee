@@ -50,11 +50,9 @@ fun CreateArticlePreviewScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Mengambil state dari ViewModel
     val isLoading = viewModel.isLoading
     val serverError = viewModel.errorMessage
 
-    // MODIFIKASI: Gunakan LaunchedEffect untuk memantau error dari ViewModel secara real-time
     LaunchedEffect(serverError) {
         serverError?.let {
             snackbarHostState.showSnackbar(
@@ -64,7 +62,6 @@ fun CreateArticlePreviewScreen(
         }
     }
 
-    // Fungsi navigasi sukses
     fun navigateToMyArticles() {
         navController.navigate("my_articles") {
             popUpTo("education_list") { inclusive = false }
@@ -72,7 +69,6 @@ fun CreateArticlePreviewScreen(
         }
     }
 
-    // Fungsi handleAksi (Upload atau Update)
     fun handleAksi(status: String) {
         if (articleId == null) {
             viewModel.uploadArticleWithImage(
@@ -103,7 +99,7 @@ fun CreateArticlePreviewScreen(
                     Toast.makeText(context, "Berhasil memperbarui artikel!", Toast.LENGTH_SHORT).show()
                     navigateToMyArticles()
                 },
-                onError = { /* Error ditangani otomatis oleh LaunchedEffect serverError */ }
+                onError = {  }
             )
         }
     }
@@ -116,12 +112,12 @@ fun CreateArticlePreviewScreen(
             )
         },
         containerColor = GrayBackground,
-        // MODIFIKASI: Gunakan SnackbarHostState agar pesan error muncul otomatis saat koneksi gagal
+
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     modifier = Modifier.padding(16.dp),
-                    containerColor = Color(0xFFCC3300), // Warna merah peringatan
+                    containerColor = Color(0xFFCC3300),
                     contentColor = Color.White,
                     action = {
                         TextButton(onClick = { data.dismiss() }) {
@@ -143,7 +139,6 @@ fun CreateArticlePreviewScreen(
                 .verticalScroll(rememberScrollState())
         ) {
 
-            // --- BAGIAN KONTEN ---
             Card(
                 shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -217,7 +212,6 @@ fun CreateArticlePreviewScreen(
                 }
             }
 
-            // --- TOMBOL AKSI ---
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = BluePrimary)

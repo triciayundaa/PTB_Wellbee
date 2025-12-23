@@ -30,10 +30,9 @@ import com.example.wellbee.ui.theme.GrayBackground
 @Composable
 fun CreateArticleMetaScreen(
     navController: NavHostController,
-    viewModel: EducationViewModel, // Menggunakan Shared ViewModel dari NavGraph
+    viewModel: EducationViewModel,
     articleId: String? = null
 ) {
-    // MODIFIKASI: State lokal hanya untuk error dan UI transien (dropdown)
     var categoryError by remember { mutableStateOf<String?>(null) }
     var readTimeError by remember { mutableStateOf<String?>(null) }
     var tagError by remember { mutableStateOf<String?>(null) }
@@ -54,14 +53,12 @@ fun CreateArticleMetaScreen(
         }
     }
 
-    // Mengisi state ViewModel saat data artikel ditemukan untuk diedit
     LaunchedEffect(myArticles, articleId) {
         if (articleId != null) {
             val idInt = articleId.toIntOrNull()
             val article = myArticles.find { it.id == idInt }
             article?.let {
-                // PENTING: Pengecekan .isEmpty() ini yang mencegah data
-                // yang sudah Anda ketik terhapus saat menekan tombol BACK.
+
                 if (viewModel.draftCategory.isEmpty()) viewModel.draftCategory = it.kategori ?: ""
                 if (viewModel.draftTag.isEmpty()) viewModel.draftTag = it.tag ?: ""
                 if (viewModel.draftReadTime.isEmpty()) {
@@ -102,7 +99,6 @@ fun CreateArticleMetaScreen(
             ) {
                 Column(Modifier.padding(20.dp)) {
 
-                    /** ================= KATEGORI (DROPDOWN) ================= **/
                     Text("Kategori Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
 
@@ -111,7 +107,7 @@ fun CreateArticleMetaScreen(
                         onExpandedChange = { expanded = !expanded }
                     ) {
                         TextField(
-                            // MODIFIKASI: value diambil dari ViewModel
+
                             value = viewModel.draftCategory,
                             onValueChange = {},
                             readOnly = true,
@@ -141,7 +137,7 @@ fun CreateArticleMetaScreen(
                                 DropdownMenuItem(
                                     text = { Text(text = option, color = Color.Black) },
                                     onClick = {
-                                        // MODIFIKASI: simpan ke ViewModel
+
                                         viewModel.draftCategory = option
                                         expanded = false
                                         categoryError = null
@@ -154,15 +150,14 @@ fun CreateArticleMetaScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    /** ================= READ TIME (HANYA ANGKA) ================= **/
                     Text("Estimasi Waktu Baca", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     TextField(
-                        // MODIFIKASI: value diambil dari ViewModel
+
                         value = viewModel.draftReadTime,
                         onValueChange = { input ->
                             val digitsOnly = input.filter { it.isDigit() }
-                            // MODIFIKASI: simpan ke ViewModel
+
                             viewModel.draftReadTime = digitsOnly
                             readTimeError = null
                         },
@@ -188,14 +183,14 @@ fun CreateArticleMetaScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    /** ================= TAG ================= **/
+
                     Text("Tag Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     TextField(
-                        // MODIFIKASI: value diambil dari ViewModel
+
                         value = viewModel.draftTag,
                         onValueChange = {
-                            // MODIFIKASI: simpan ke ViewModel
+
                             viewModel.draftTag = it
                             tagError = null
                         },
@@ -219,18 +214,16 @@ fun CreateArticleMetaScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            /** ================= BUTTON LANJUTKAN (DI METASCREEN) ================= **/
             Button(
                 onClick = {
                     var valid = true
-                    // Validasi tetap menggunakan data dari ViewModel
+
                     if (viewModel.draftCategory.isBlank()) { categoryError = "Kategori harus diisi"; valid = false }
                     if (viewModel.draftReadTime.isBlank()) { readTimeError = "Waktu baca harus diisi"; valid = false }
                     if (viewModel.draftTag.isBlank()) { tagError = "Tag harus diisi"; valid = false }
 
                     if (valid) {
-                        // Kita tidak perlu lagi Uri.encode untuk kategori/tag di sini
-                        // karena data sudah aman tersimpan di sharedViewModel
+
                         val route = if (articleId != null) {
                             "create_article_content?articleId=$articleId"
                         } else {

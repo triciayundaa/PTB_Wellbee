@@ -18,15 +18,7 @@ fun PhysicalNavGraph(navController: NavHostController) {
         navController = navController,
         startDestination = "dashboard"
     ) {
-        // Halaman utama modul fisik (dashboard)
-//        composable("dashboard") {
-//            androidx.compose.foundation.layout.Column {
-//                PhysicalHealthHeader(navController, currentTab = "None")
-//                PhysicalDashboardContent()
-//            }
-//        }
 
-        // 🟩 Dashboard
         composable("dashboard") {
             Column {
                 PhysicalHealthHeader(navController, currentTab = "None")
@@ -34,7 +26,7 @@ fun PhysicalNavGraph(navController: NavHostController) {
             }
         }
 
-        // 🟨 Sport
+
         composable("sport_screen") {
             Column {
                 PhysicalHealthHeader(navController, currentTab = "Sport")
@@ -42,7 +34,7 @@ fun PhysicalNavGraph(navController: NavHostController) {
             }
         }
 
-        // 🟦 Sleep
+
         composable("sleep_screen") {
             Column {
                 PhysicalHealthHeader(navController, currentTab = "Sleep")
@@ -50,7 +42,7 @@ fun PhysicalNavGraph(navController: NavHostController) {
             }
         }
 
-        // 🟧 Weight
+
         composable("weight_screen") {
             Column {
                 PhysicalHealthHeader(navController, currentTab = "BeratBadan")
@@ -58,43 +50,10 @@ fun PhysicalNavGraph(navController: NavHostController) {
             }
         }
 
-        // 🟥 Riwayat
+
         composable("riwayat_screen") {
             RiwayatScreen(navController = navController)
         }
 
-        // Halaman Sport
-//        composable("sport_screen") {
-//            androidx.compose.foundation.layout.Column {
-//                PhysicalHealthHeader(navController, currentTab = "Sport")
-//                SportScreen(navController)
-//            }
-//        }
-//
-//        composable("sleep_screen") {
-//            PhysicalHealthHeader(navController, currentTab = "Sleep")
-//            SleepScreen(navController = navController)
-//        }
-//        composable("weight_screen") {
-//            PhysicalHealthHeader(navController, currentTab = "BeratBadan")
-//            WeightScreen(navController = navController)
-//        }
-
-        // Jika nanti mau aktifkan Sleep & Weight:
-        /*
-    composable("sleep_screen") {
-        Column {
-            PhysicalHealthHeader(navController, currentTab = "Sleep")
-            SleepScreen(navController)
-        }
-    }
-
-    composable("weight_screen") {
-        Column {
-            PhysicalHealthHeader(navController, currentTab = "BeratBadan")
-            WeightScreen(navController)
-        }
-    }
-    */
     }
 }

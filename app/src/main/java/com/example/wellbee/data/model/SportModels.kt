@@ -2,9 +2,6 @@ package com.example.wellbee.data.model
 
 import com.google.gson.annotations.SerializedName
 
-// ===============================
-// 1️⃣ Model untuk REQUEST ke Backend
-// ===============================
 data class SportRequest(
     val jenisOlahraga: String,
     val durasiMenit: Int,
@@ -13,18 +10,12 @@ data class SportRequest(
     val tanggal: String
 )
 
-// ===============================
-// 2️⃣ Model untuk RESPONSE saat input (POST)
-// ===============================
 data class SportResponse(
     val status: String,
     val message: String,
     val data: SportModel? = null
 )
 
-// ===============================
-// 3️⃣ Model untuk RIWAYAT SPORT (GET history)
-// ===============================
 data class SportModel(
     val id: Int,
     val userId: Int,
@@ -61,12 +52,6 @@ data class WeeklySportChartResponse(
     val rangeText: String
 )
 
-
-
-// ===============================
-// 4️⃣ Model untuk Sleep
-// ===============================
-
 data class SleepRequest(
     val jamTidur: String,
     val jamBangun: String,
@@ -89,7 +74,6 @@ data class SleepData(
     val tanggal: String
 )
 
-//weight
 data class WeightData(
     val id: Int,
     val beratBadan: Double,
@@ -98,7 +82,7 @@ data class WeightData(
     val kategori: String,
     val tanggal: String
 )
-// ===== RESPONSE DARI BACKEND =====
+
 data class WeightResponse(
     val message: String,
     val data: WeightData
@@ -113,7 +97,7 @@ data class WeightRequest(
 )
 
 data class WeeklySportPoint(
-    val dayLabel: String,   // Sen (11 Jun)
+    val dayLabel: String,
     val duration: Int
 )
 

@@ -15,9 +15,6 @@ class MentalRepository(
     private val api: ApiService
 ) {
 
-    // =========================
-    // MOOD (OFFLINE FIRST)
-    // =========================
     suspend fun insertMoodOffline(item: MentalMoodEntity): Long =
         withContext(Dispatchers.IO) {
             dao.insertMood(item.copy(isSynced = false))
@@ -46,9 +43,7 @@ class MentalRepository(
             }
         }
 
-    // =========================
-    // JURNAL (OFFLINE FIRST)
-    // =========================
+
     suspend fun insertJournalOffline(item: MentalJournalEntity): Long =
         withContext(Dispatchers.IO) {
             dao.insertJournal(item.copy(isSynced = false))
@@ -83,9 +78,6 @@ class MentalRepository(
             }
         }
 
-    // =========================
-    // BULK SYNC (BACKGROUND)
-    // =========================
     suspend fun syncPending() = withContext(Dispatchers.IO) {
 
         dao.getUnsyncedMood().forEach { mood ->

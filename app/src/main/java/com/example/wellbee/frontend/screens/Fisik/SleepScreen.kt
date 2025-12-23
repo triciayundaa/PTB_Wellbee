@@ -21,16 +21,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.example.wellbee.data.FisikRepository
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.wellbee.data.viewmodel.FisikViewModel
+import com.example.wellbee.data.viewmodel.FisikViewModelFactory
 import com.example.wellbee.data.model.SleepRequest
 import com.example.wellbee.frontend.components.DateField
 import com.example.wellbee.frontend.components.showDatePicker
 import com.example.wellbee.frontend.components.showTimePicker
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-// --- Palet Warna Lokal ---
+
 private object SleepColors {
     val Primary = Color(0xFF0E4DA4)
     val Secondary = Color(0xFF74B9FF)
@@ -41,24 +42,30 @@ private object SleepColors {
 }
 
 @Composable
-fun SleepScreen(navController: NavHostController) {
+fun SleepScreen(
+    navController: NavHostController,
+
+    viewModel: FisikViewModel = viewModel(
+        factory = FisikViewModelFactory(LocalContext.current)
+    )
+) {
     val context = LocalContext.current
     val activity = context.getActivity()
-    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    // --- State Variables ---
+    val isLoading by viewModel.isLoading.collectAsState()
+
     var tanggal by remember { mutableStateOf("") }
     var jamTidur by remember { mutableStateOf("") }
     var jamBangun by remember { mutableStateOf("") }
     var durasiTidur by remember { mutableStateOf("") }
     var kualitasTidur by remember { mutableStateOf(0) }
 
-    // --- UI Control States ---
     var showPickerTidur by remember { mutableStateOf(false) }
     var showPickerBangun by remember { mutableStateOf(false) }
 
     var showDatePickerDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(showDatePickerDialog) {
         if (showDatePickerDialog) {
             showDatePicker(context) { selectedDate ->
@@ -68,12 +75,10 @@ fun SleepScreen(navController: NavHostController) {
         }
     }
 
-    // --- Logic Helper ---
     fun updateDurasi() {
         durasiTidur = hitungDurasiTidur(jamTidur, jamBangun)
     }
 
-    // --- Time Pickers Logic ---
     if (showPickerTidur && activity != null) {
         showTimePicker(activity) { selected ->
             jamTidur = selected
@@ -90,7 +95,6 @@ fun SleepScreen(navController: NavHostController) {
         }
     }
 
-    // --- Main Layout ---
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -99,7 +103,6 @@ fun SleepScreen(navController: NavHostController) {
             .padding(16.dp)
     ) {
 
-        // 1. Header
         Text(
             text = "Catat Kualitas Tidur Kamu",
             fontSize = 18.sp,
@@ -109,7 +112,6 @@ fun SleepScreen(navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 2. Form Input Waktu
         DateField(
             label = "Tanggal",
             value = tanggal,
@@ -128,7 +130,6 @@ fun SleepScreen(navController: NavHostController) {
             onClick = { showPickerBangun = true }
         )
 
-        // Field Durasi (Read Only)
         OutlinedTextField(
             value = durasiTidur,
             onValueChange = {},
@@ -149,7 +150,6 @@ fun SleepScreen(navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 3. Selector Kualitas Tidur
         if (jamTidur.isNotEmpty() && jamBangun.isNotEmpty()) {
             SleepQualitySelector(
                 selectedQuality = kualitasTidur,
@@ -158,63 +158,49 @@ fun SleepScreen(navController: NavHostController) {
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // 4. Action Buttons
-        SleepActionButtons(
-            // 🔥 UPDATE: Menggunakan logika startDestinationId agar pasti kembali ke dashboard
-            onCancel = {
-                navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
-            },
-            onSave = onSave@{
-
-                if (tanggal.isEmpty()) {
-                    Toast.makeText(context, "Tanggal wajib diisi", Toast.LENGTH_SHORT).show()
-                    return@onSave
-                }
-
-                if (jamTidur.isEmpty() ||
-                    jamBangun.isEmpty() ||
-                    durasiTidur.isEmpty()
-                ) {
-                    Toast.makeText(context, "Lengkapi data tidur", Toast.LENGTH_SHORT).show()
-                    return@onSave
-                }
-
-                val repo = FisikRepository(context)
-                val req = SleepRequest(
-                    jamTidur = jamTidur,
-                    jamBangun = jamBangun,
-                    durasiTidur = durasiTidur.replace(",", ".").toDouble(),
-                    kualitasTidur = kualitasTidur,
-                    tanggal = tanggal
-                )
-
-                scope.launch {
-                    val result = repo.catatTidur(req)
-                    if (result.isSuccess) {
-                        Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
-
-                        tanggal = ""
-                        jamTidur = ""
-                        jamBangun = ""
-                        durasiTidur = ""
-                        kualitasTidur = 0
-                    } else {
-                        Toast.makeText(
-                            context,
-                            result.exceptionOrNull()?.message ?: "Gagal menyimpan",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
+        if (isLoading) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = SleepColors.Primary)
             }
-        )
+        } else {
+            SleepActionButtons(
+                onCancel = {
+                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                },
+                onSave = {
+                    if (tanggal.isEmpty()) {
+                        Toast.makeText(context, "Tanggal wajib diisi", Toast.LENGTH_SHORT).show()
+                        return@SleepActionButtons
+                    }
+                    if (jamTidur.isEmpty() || jamBangun.isEmpty() || durasiTidur.isEmpty()) {
+                        Toast.makeText(context, "Lengkapi data tidur", Toast.LENGTH_SHORT).show()
+                        return@SleepActionButtons
+                    }
 
+                    val req = SleepRequest(
+                        jamTidur = jamTidur,
+                        jamBangun = jamBangun,
+                        durasiTidur = durasiTidur.replace(",", ".").toDouble(),
+                        kualitasTidur = kualitasTidur,
+                        tanggal = tanggal
+                    )
+
+                    viewModel.catatTidur(
+                        req = req,
+                        onSuccess = {
+                            Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                            tanggal = ""
+                            jamTidur = ""
+                            jamBangun = ""
+                            durasiTidur = ""
+                            kualitasTidur = 0
+                        }
+                    )
+                }
+            )
+        }
     }
 }
-
-// ===================================
-// COMPONENTS
-// ===================================
 
 @Composable
 fun SleepQualitySelector(selectedQuality: Int, onQualitySelected: (Int) -> Unit) {
@@ -318,11 +304,6 @@ fun DateTimeField(label: String, value: String, onClick: () -> Unit) {
         )
     }
 }
-
-
-// ===================================
-// UTILS
-// ===================================
 
 fun hitungDurasiTidur(jamTidur: String, jamBangun: String): String {
     if (jamTidur.isEmpty() || jamBangun.isEmpty()) return ""

@@ -15,7 +15,6 @@ import com.example.wellbee.data.model.ResetPasswordRequest
 import com.example.wellbee.ui.theme.WellbeeTheme
 import kotlinx.coroutines.launch
 
-// Perbarui file ResetPasswordScreen.kt Anda
 @Composable
 fun ResetPasswordScreen(navController: NavHostController) {
     val context = LocalContext.current
@@ -44,7 +43,7 @@ fun ResetPasswordScreen(navController: NavHostController) {
 
         Button(
             onClick = {
-                // 1. Validasi Input
+
                 if (password != confirm) {
                     android.widget.Toast.makeText(context, "Password tidak cocok!", android.widget.Toast.LENGTH_SHORT).show()
                     return@Button
@@ -55,7 +54,6 @@ fun ResetPasswordScreen(navController: NavHostController) {
                     return@Button
                 }
 
-                // 2. Eksekusi API
                 isLoading = true
                 scope.launch {
                     try {
@@ -81,13 +79,13 @@ fun ResetPasswordScreen(navController: NavHostController) {
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading // Matikan tombol saat loading
+            enabled = !isLoading
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp), // Ukuran diatur di sini
+                    modifier = Modifier.size(20.dp),
                     color = androidx.compose.ui.graphics.Color.White,
-                    strokeWidth = 2.dp // Opsional: agar garis tidak terlalu tebal di ukuran kecil
+                    strokeWidth = 2.dp
                 )
             } else {
                 Text(text = "Save")

@@ -24,7 +24,7 @@ import androidx.compose.foundation.layout.FlowRow
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BookmarkArticleCard(
-    imageUrl: String?,              // 🔹 URL gambar dari backend (sudah full)
+    imageUrl: String?,
     categories: List<String>,
     title: String,
     readTime: String,
@@ -41,7 +41,6 @@ fun BookmarkArticleCard(
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column {
-            // 🔹 Gambar utama / placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -79,7 +78,6 @@ fun BookmarkArticleCard(
             Spacer(Modifier.height(12.dp))
 
             Column(Modifier.padding(horizontal = 16.dp)) {
-                // 🔹 Kategori
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start
@@ -95,7 +93,6 @@ fun BookmarkArticleCard(
 
                 Spacer(Modifier.height(8.dp))
 
-                // 🔹 Judul
                 Text(
                     text = title,
                     fontWeight = FontWeight.Bold,
@@ -105,7 +102,6 @@ fun BookmarkArticleCard(
 
                 Spacer(Modifier.height(4.dp))
 
-                // 🔹 Waktu baca & status baca
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -127,7 +123,6 @@ fun BookmarkArticleCard(
 
                 Spacer(Modifier.height(12.dp))
 
-                // 🔹 Tombol: Hapus dan Baca Selengkapnya
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween

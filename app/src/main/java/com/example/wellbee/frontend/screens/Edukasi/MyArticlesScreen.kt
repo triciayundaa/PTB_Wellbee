@@ -133,8 +133,6 @@ fun MyArticlesScreen(
     }
 }
 
-/* ─── TOP BAR (PERBAIKAN TATA LETAK) ─── */
-
 @Composable
 private fun MyArticlesTopBar(navController: NavHostController?) {
     Surface(
@@ -148,7 +146,6 @@ private fun MyArticlesTopBar(navController: NavHostController?) {
                 .statusBarsPadding()
                 .padding(bottom = 20.dp)
         ) {
-            // Baris 1: Tombol Back & Judul Tengah
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -175,7 +172,6 @@ private fun MyArticlesTopBar(navController: NavHostController?) {
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Baris 2: Sub-judul
             Text(
                 text = "Artikel Saya",
                 color = Color.White.copy(alpha = 0.9f),
@@ -187,7 +183,6 @@ private fun MyArticlesTopBar(navController: NavHostController?) {
     }
 }
 
-/* ─── STATE VIEWS (ERROR & EMPTY) ─── */
 
 @Composable
 fun ErrorStateView(message: String, onRetry: () -> Unit) {
@@ -242,8 +237,6 @@ fun EmptyStateView() {
         )
     }
 }
-
-/* ─── CARD & DIALOG COMPONENTS ─── */
 
 enum class MyArticleAction { UPLOAD, CANCEL_UPLOAD, REUPLOAD }
 

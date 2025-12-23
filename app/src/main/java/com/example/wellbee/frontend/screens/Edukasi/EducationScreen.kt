@@ -40,14 +40,12 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Semua") }
 
-    // Load data awal
     LaunchedEffect(Unit) {
         viewModel.loadCategories()
         viewModel.loadBookmarks()
         viewModel.loadArticles()
     }
 
-    // LOGIKA SEARCH
     LaunchedEffect(searchQuery) {
         if (searchQuery.isBlank()) {
             viewModel.loadArticles()
@@ -69,8 +67,6 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
         }
     }
 
-    // 🔹 PERBAIKAN FINAL: Gunakan sortedWith agar sorting lebih stabil
-    // Mengurutkan berdasarkan Waktu (Descending), jika waktu identik gunakan ID (Descending)
     val filteredArticlesSorted = remember(filteredByCategory, searchQuery) {
         filteredByCategory.sortedWith(
             compareByDescending<PublicArticleDto> { parseBackendDateToMillis(it.tanggal) }
@@ -83,7 +79,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
             .fillMaxSize()
             .background(GrayBackground)
     ) {
-        // HEADER
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -106,7 +102,6 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
             )
         } else Spacer(Modifier.height(4.dp))
 
-        // SEARCH BAR
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -148,7 +143,6 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
 
         Spacer(Modifier.height(12.dp))
 
-        // KATEGORI
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -166,7 +160,6 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
 
         Spacer(Modifier.height(16.dp))
 
-        // MAIN CONTENT
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -176,7 +169,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
         ) {
 
             item {
-                // ARTIKEL TERSIMPAN HEADER
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -198,7 +191,7 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
 
                 Spacer(Modifier.height(8.dp))
 
-                // BUTTON BUAT ARTIKEL
+
                 OutlinedButton(
                     onClick = {
                         viewModel.clearDraft()
@@ -219,7 +212,6 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
 
                 Spacer(Modifier.height(16.dp))
 
-                // ARTIKEL TERBARU HEADER
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -233,7 +225,6 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
 
                 Spacer(Modifier.height(8.dp))
 
-                // ERROR MESSAGE
                 if (!errorMessage.isNullOrBlank()) {
                     Box(
                         modifier = Modifier
@@ -302,7 +293,6 @@ fun EducationScreen(navController: NavHostController, viewModel: EducationViewMo
     }
 }
 
-// UTILITY: parse date backend
 private fun parseBackendDateToMillis(raw: String?): Long {
     if (raw.isNullOrBlank()) return 0L
 

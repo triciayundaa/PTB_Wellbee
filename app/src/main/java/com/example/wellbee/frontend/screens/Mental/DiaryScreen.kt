@@ -68,7 +68,6 @@ fun DiaryScreen(navController: NavHostController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // --- Permissions ---
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { }
@@ -85,7 +84,7 @@ fun DiaryScreen(navController: NavHostController) {
     var expanded by remember { mutableStateOf(false) }
     var showSavedPopup by remember { mutableStateOf(false) }
 
-    // Date Picker State
+
     val calendar = Calendar.getInstance()
     var selectedDate by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) }
 
@@ -206,9 +205,8 @@ fun DiaryScreen(navController: NavHostController) {
             return
         }
 
-        // --- UPDATE PENTING UNTUK NAVIGASI ---
         val intent = Intent(context, com.example.wellbee.MainActivity::class.java).apply {
-            // Gunakan flags ini agar Activity tidak di-restart total, tapi menggunakan instance yang ada (jika ada)
+
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("target_screen", "mental_journal_detail")
             putExtra("journal_id", journalId)
@@ -216,13 +214,13 @@ fun DiaryScreen(navController: NavHostController) {
 
         val pendingIntent: PendingIntent = PendingIntent.getActivity(
             context,
-            journalId, // RequestCode unik agar intent tidak tertimpa
+            journalId,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val builder = NotificationCompat.Builder(context, "mental_channel_id")
-            .setSmallIcon(R.mipmap.ic_launcher_round) // Pastikan icon valid
+            .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentTitle("Wellbee Journal")
             .setContentText("Diary Anda berhasil disimpan! Tap untuk melihat detail. 📝")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -302,7 +300,6 @@ fun DiaryScreen(navController: NavHostController) {
                     )
                 }
 
-                // --- Date Picker Input ---
                 OutlinedTextField(
                     value = selectedDate,
                     onValueChange = {},
@@ -445,8 +442,7 @@ fun DiaryScreen(navController: NavHostController) {
 
                         val triggerFinal =
                             if (selectedTrigger == "Lainnya") customTrigger.text else selectedTrigger
-                        
-                        // Gunakan tanggal yang dipilih dari DatePicker
+
                         val currentDate = selectedDate 
 
                         scope.launch {
@@ -460,17 +456,14 @@ fun DiaryScreen(navController: NavHostController) {
                                 isSynced = false
                             )
 
-                            // 1. Simpan ke Database Lokal (Room)
                             var newId: Long = 0
                             withContext(Dispatchers.IO) {
                                 val dao = AppDatabase.getInstance(context).mentalDao()
                                 newId = dao.insertJournal(newJournal)
                             }
 
-                            // 2. Kirim Notifikasi
                             showJournalNotification(context, newId.toInt())
 
-                            // 3. Kirim ke Server Backend (API)
                             withContext(Dispatchers.IO) {
                                 try {
                                     val apiService = RetrofitClient.getInstance(context)
@@ -479,7 +472,7 @@ fun DiaryScreen(navController: NavHostController) {
                                         triggerLabel = triggerFinal,
                                         isiJurnal = diaryText.text,
                                         foto = photoPath,
-                                        audio = audioPath, // Kirim audio ke backend
+                                        audio = audioPath,
                                         tanggal = currentDate
                                     )
                                     val response = apiService.postJournal(request)
@@ -496,10 +489,7 @@ fun DiaryScreen(navController: NavHostController) {
                             showSavedPopup = true
                             delay(1200)
                             showSavedPopup = false
-                            
-                            // Navigasi ke Detail (opsional, karena user juga bisa klik notif)
-                            // Jika ingin langsung pindah, bisa uncomment:
-                            // navController.navigate("detail_diary/${newId.toInt()}")
+
                         }
                     },
                     modifier = Modifier

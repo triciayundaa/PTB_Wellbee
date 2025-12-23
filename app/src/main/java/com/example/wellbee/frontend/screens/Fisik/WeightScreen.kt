@@ -18,36 +18,39 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.example.wellbee.data.FisikRepository
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.wellbee.data.viewmodel.FisikViewModel
+import com.example.wellbee.data.viewmodel.FisikViewModelFactory
 import com.example.wellbee.data.model.WeightRequest
 import com.example.wellbee.frontend.components.DateField
 import com.example.wellbee.frontend.components.showDatePicker
-import kotlinx.coroutines.launch
 
 @Composable
-fun WeightScreen(navController: NavHostController) {
+fun WeightScreen(
+    navController: NavHostController,
+    viewModel: FisikViewModel = viewModel(
+        factory = FisikViewModelFactory(LocalContext.current)
+    )
+) {
 
     val scrollState = rememberScrollState()
     val activity = LocalActivity.current
     val context = LocalContext.current
-    val repo = remember { FisikRepository(context) }
-    val scope = rememberCoroutineScope()
 
-    // Warna Tema
+    val isLoading by viewModel.isLoading.collectAsState()
+
     val BluePrimary = Color(0xFF0E4DA4)
 
-    // 🔥 PENTING: Setting Warna Input Form (Agar Tulisan Kelihatan)
     val inputColors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = Color.Black,     // Teks saat mengetik jadi HITAM
-        unfocusedTextColor = Color.Black,   // Teks saat tidak diklik jadi HITAM
-        cursorColor = BluePrimary,          // Kursor warna Biru
-        focusedBorderColor = BluePrimary,   // Garis pinggir saat aktif Biru
-        unfocusedBorderColor = Color.Gray,  // Garis pinggir diam Abu
-        focusedLabelColor = BluePrimary,    // Label saat aktif Biru
-        unfocusedLabelColor = Color.Gray    // Label diam Abu
+        focusedTextColor = Color.Black,
+        unfocusedTextColor = Color.Black,
+        cursorColor = BluePrimary,
+        focusedBorderColor = BluePrimary,
+        unfocusedBorderColor = Color.Gray,
+        focusedLabelColor = BluePrimary,
+        unfocusedLabelColor = Color.Gray
     )
 
-    // ================= STATE =================
     var berat by remember { mutableStateOf("") }
     var tinggi by remember { mutableStateOf("") }
     var tanggal by remember { mutableStateOf("") }
@@ -55,11 +58,9 @@ fun WeightScreen(navController: NavHostController) {
     var bmi by remember { mutableStateOf(0.0) }
     var kategori by remember { mutableStateOf("") }
 
-    // ================= PARSE INPUT =================
     val beratVal = berat.replace(",", ".").toDoubleOrNull()
     val tinggiVal = tinggi.replace(",", ".").toDoubleOrNull()
 
-    // ================= HITUNG BMI =================
     LaunchedEffect(beratVal, tinggiVal) {
         if (beratVal != null && tinggiVal != null && tinggiVal > 0) {
             val bmiValue = beratVal / ((tinggiVal / 100) * (tinggiVal / 100))
@@ -76,14 +77,12 @@ fun WeightScreen(navController: NavHostController) {
         }
     }
 
-    // ================= VALIDASI =================
     val isValid = beratVal != null &&
             tinggiVal != null &&
             beratVal > 0 &&
             tinggiVal > 0 &&
             tanggal.isNotBlank()
 
-    // ================= UI =================
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -101,7 +100,6 @@ fun WeightScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Input Berat Badan
         OutlinedTextField(
             value = berat,
             onValueChange = {
@@ -111,12 +109,11 @@ fun WeightScreen(navController: NavHostController) {
             label = { Text("Berat Badan (kg)") },
             placeholder = { Text("Contoh: 65.5") },
             modifier = Modifier.fillMaxWidth(),
-            colors = inputColors // 🔥 Pasang warna disini
+            colors = inputColors
         )
 
         Spacer(Modifier.height(12.dp))
 
-        // Input Tinggi Badan
         OutlinedTextField(
             value = tinggi,
             onValueChange = {
@@ -126,7 +123,7 @@ fun WeightScreen(navController: NavHostController) {
             label = { Text("Tinggi Badan (cm)") },
             placeholder = { Text("Contoh: 170") },
             modifier = Modifier.fillMaxWidth(),
-            colors = inputColors // 🔥 Pasang warna disini
+            colors = inputColors
         )
 
         Spacer(Modifier.height(12.dp))
@@ -136,7 +133,7 @@ fun WeightScreen(navController: NavHostController) {
             value = tanggal,
             onClick = {
                 activity?.let {
-                    showDatePicker(it) { tanggal = it }
+                    showDatePicker(it) { selectedDate -> tanggal = selectedDate }
                 }
             }
         )
@@ -197,18 +194,15 @@ fun WeightScreen(navController: NavHostController) {
                             tanggal = tanggal
                         )
 
-                        scope.launch {
-                            val result = repo.catatWeight(req)
-                            if (result.isSuccess) {
-                                Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
-                                // Reset Input
+                        viewModel.catatBerat(
+                            req = req,
+                            onSuccess = {
+                                Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
                                 berat = ""
                                 tinggi = ""
                                 tanggal = ""
-                            } else {
-                                Toast.makeText(context, "Gagal menyimpan", Toast.LENGTH_SHORT).show()
                             }
-                        }
+                        )
                     } else {
                         Toast.makeText(context, "Mohon lengkapi semua data!", Toast.LENGTH_SHORT).show()
                     }
@@ -219,7 +213,11 @@ fun WeightScreen(navController: NavHostController) {
                     contentColor = Color.White
                 )
             ) {
-                Text("Simpan")
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                } else {
+                    Text("Simpan")
+                }
             }
         }
     }

@@ -13,10 +13,6 @@ import java.io.IOException
 class EducationViewModel(context: Context) : ViewModel() {
 
     private val repo = EducationRepository(context)
-
-    // ==========================================
-    // 🔹 DRAFT STATE
-    // ==========================================
     var draftCategory by mutableStateOf("")
     var draftReadTime by mutableStateOf("")
     var draftTag by mutableStateOf("")
@@ -32,10 +28,6 @@ class EducationViewModel(context: Context) : ViewModel() {
         draftContent = ""
         draftImageUri = null
     }
-
-    // ==========================
-    // ARTIKEL PUBLIK
-    // ==========================
 
     var articles by mutableStateOf<List<PublicArticleDto>>(emptyList())
         private set
@@ -79,7 +71,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
-                // 🔹 PERBAIKAN: Hapus sorting string manual di sini agar konsisten dengan loadArticles
                 articles = repo.getPublicArticles(query)
             } catch (e: IOException) {
                 errorMessage = "Pencarian gagal: Periksa koneksi internet Anda."
@@ -100,10 +91,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             }
         }
     }
-
-    // ==========================
-    // SEARCH HISTORY
-    // ==========================
 
     var recentSearches by mutableStateOf<List<String>>(emptyList())
         private set
@@ -128,9 +115,6 @@ class EducationViewModel(context: Context) : ViewModel() {
         }
     }
 
-    // ==========================
-    // UPLOAD ARTIKEL
-    // ==========================
     fun uploadArticleWithImage(
         imageUri: Uri?,
         kategori: String,
@@ -183,10 +167,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             }
         }
     }
-
-    // ==========================
-    // BOOKMARK
-    // ==========================
 
     var bookmarks by mutableStateOf<List<BookmarkDto>>(emptyList())
         private set
@@ -248,10 +228,6 @@ class EducationViewModel(context: Context) : ViewModel() {
             }
         }
     }
-
-    // ==========================
-    // ARTIKEL SAYA
-    // ==========================
 
     var myArticles by mutableStateOf<List<MyArticleDto>>(emptyList())
         private set

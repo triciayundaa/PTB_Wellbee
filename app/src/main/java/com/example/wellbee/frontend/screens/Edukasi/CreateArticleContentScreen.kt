@@ -53,15 +53,12 @@ fun CreateArticleContentScreen(
 ) {
     val context = LocalContext.current
 
-    // MODIFIKASI: State lokal hanya untuk error dan UI transien
     var titleError by remember { mutableStateOf<String?>(null) }
     var contentError by remember { mutableStateOf<String?>(null) }
 
-    // State untuk Bottom Sheet
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
-    /** ================= IMAGE LAUNCHERS ================= */
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
@@ -73,7 +70,6 @@ fun CreateArticleContentScreen(
                 "Wellbee_${System.currentTimeMillis()}",
                 null
             )
-            // MODIFIKASI: Simpan ke ViewModel
             viewModel.draftImageUri = Uri.parse(path)
         }
     }
@@ -81,7 +77,6 @@ fun CreateArticleContentScreen(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        // MODIFIKASI: Simpan ke ViewModel
         if (uri != null) viewModel.draftImageUri = uri
     }
 
@@ -95,7 +90,6 @@ fun CreateArticleContentScreen(
         }
     }
 
-    /** ================= LOGIKA LOAD DATA (MODE EDIT) ================= */
     val myArticles = viewModel.myArticles
 
     LaunchedEffect(Unit) {
@@ -109,15 +103,15 @@ fun CreateArticleContentScreen(
             val idInt = articleId.toIntOrNull()
             val article = myArticles.find { it.id == idInt }
             article?.let {
-                // Hanya isi jika draftTitle masih kosong (mencegah overwrite saat Back)
+
                 if (viewModel.draftTitle.isEmpty()) {
                     viewModel.draftTitle = it.judul
                 }
-                // Hanya isi jika draftContent masih kosong (mencegah overwrite saat Back)
+
                 if (viewModel.draftContent.isEmpty()) {
                     viewModel.draftContent = it.isi
                 }
-                // Hanya isi jika draftImageUri masih null
+
                 if (viewModel.draftImageUri == null && !it.gambarUrl.isNullOrEmpty()) {
                     val fullUrl = if (it.gambarUrl!!.startsWith("http")) {
                         it.gambarUrl
@@ -132,7 +126,7 @@ fun CreateArticleContentScreen(
         }
     }
 
-    /** ================= UI ================= */
+
     Scaffold(
         topBar = {
             EducationTopBarWithBack(
@@ -168,7 +162,6 @@ fun CreateArticleContentScreen(
             ) {
                 Column(Modifier.padding(20.dp)) {
 
-                    /** JUDUL **/
                     Text("Judul Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
@@ -191,7 +184,6 @@ fun CreateArticleContentScreen(
 
                     Spacer(Modifier.height(20.dp))
 
-                    /** GAMBAR SAMPUL **/
                     Text("Gambar Sampul", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     Box(
@@ -220,7 +212,6 @@ fun CreateArticleContentScreen(
 
                     Spacer(Modifier.height(20.dp))
 
-                    /** ISI KONTEN **/
                     Text("Isi Artikel", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF21436B))
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
@@ -246,7 +237,6 @@ fun CreateArticleContentScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            /** ================= BUTTON PREVIEW ================= **/
             Button(
                 onClick = {
                     if (viewModel.draftTitle.isBlank()) titleError = "Judul wajib diisi"
@@ -275,7 +265,7 @@ fun CreateArticleContentScreen(
         }
     }
 
-    /** ================= MODAL BOTTOM SHEET ================= */
+
     if (showBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },

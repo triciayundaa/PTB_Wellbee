@@ -9,10 +9,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MentalDao {
-
-    // =========================
-    // MOOD
-    // =========================
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMood(item: MentalMoodEntity): Long
 
@@ -28,7 +24,6 @@ interface MentalDao {
     @Query("SELECT * FROM mental_mood WHERE userId = :userId ORDER BY tanggal DESC, id DESC")
     suspend fun getMoodByUser(userId: Int): List<MentalMoodEntity>
 
-    // [BARU] Ambil mood berdasarkan tanggal untuk ditampilkan di Detail Journal
     @Query("SELECT * FROM mental_mood WHERE userId = :userId AND tanggal = :date ORDER BY id DESC LIMIT 1")
     suspend fun getMoodByDate(userId: Int, date: String): MentalMoodEntity?
 
@@ -38,9 +33,6 @@ interface MentalDao {
     @Query("UPDATE mental_mood SET isSynced = 1, serverId = :serverId WHERE id = :localId")
     suspend fun markMoodSynced(localId: Int, serverId: Int)
 
-    // =========================
-    // JURNAL
-    // =========================
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertJournal(item: MentalJournalEntity): Long
 

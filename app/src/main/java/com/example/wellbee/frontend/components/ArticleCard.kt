@@ -30,14 +30,14 @@ import com.example.wellbee.ui.theme.BluePrimary
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ArticleCard(
-    articleId: String,          // masih ikut dikirim, walau di sini tidak dipakai
-    imageUrl: String?,          // URL gambar dari backend (sudah full)
+    articleId: String,
+    imageUrl: String?,
     categories: List<String>,
     title: String,
     readTime: String,
-    isBookmarked: Boolean,      // 🔹 status bookmark dikirim dari luar (ViewModel)
-    onBookmarkClick: () -> Unit,// 🔹 aksi saat icon bookmark diklik
-    onReadMoreClick: () -> Unit // 🔹 aksi saat tombol "Baca Selengkapnya" diklik
+    isBookmarked: Boolean,
+    onBookmarkClick: () -> Unit,
+    onReadMoreClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -48,7 +48,6 @@ fun ArticleCard(
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column {
-            // 🔹 Gambar utama / placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -57,7 +56,7 @@ fun ArticleCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (!imageUrl.isNullOrBlank()) {
-                    // Debug kecil ke Logcat (boleh dihapus nanti)
+
                     println("ArticleCard imageUrl = $imageUrl")
 
                     AsyncImage(
@@ -90,7 +89,6 @@ fun ArticleCard(
 
             Column(Modifier.padding(horizontal = 16.dp)) {
 
-                // 🔹 Daftar kategori/tag (chip)
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start
@@ -106,7 +104,6 @@ fun ArticleCard(
 
                 Spacer(Modifier.height(8.dp))
 
-                // 🔹 Judul artikel
                 Text(
                     text = title,
                     fontWeight = FontWeight.Bold,
@@ -117,7 +114,6 @@ fun ArticleCard(
 
                 Spacer(Modifier.height(6.dp))
 
-                // 🔹 Estimasi waktu baca + tombol bookmark
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -129,7 +125,7 @@ fun ArticleCard(
                         color = Color.Gray
                     )
                     IconButton(
-                        onClick = onBookmarkClick   // 🔹 serahkan ke caller
+                        onClick = onBookmarkClick
                     ) {
                         Icon(
                             imageVector = if (isBookmarked)
@@ -144,7 +140,6 @@ fun ArticleCard(
 
                 Spacer(Modifier.height(12.dp))
 
-                // 🔹 Tombol "Baca Selengkapnya"
                 Button(
                     onClick = onReadMoreClick,
                     modifier = Modifier

@@ -9,7 +9,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope // ✅ Tambahan
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,7 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.wellbee.data.FisikRepository // ✅ Tambahan Import Repo
+import com.example.wellbee.data.FisikRepository
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.frontend.components.BottomNavigationBar
 import com.example.wellbee.frontend.navigation.EducationNavGraph
@@ -29,40 +29,31 @@ import com.example.wellbee.frontend.screens.Edukasi.ArticleDetailScreen
 import com.example.wellbee.frontend.screens.Fisik.PhysicalHealthScreen
 import com.example.wellbee.frontend.screens.Home.HomeScreen
 import com.example.wellbee.ui.theme.BluePrimary
-import com.google.firebase.messaging.FirebaseMessaging // ✅ Tambahan Import Firebase
-import kotlinx.coroutines.launch // ✅ Tambahan Import Coroutine
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.launch
 
 @SuppressLint("ComposableDestinationInComposeScope")
 @Composable
 fun MainScreen(parentNavController: NavHostController) {
 
-    // =========================================================
-    // ✅ 1. SETUP VARIABEL UNTUK KIRIM TOKEN (TAMBAHAN BARU)
-    // =========================================================
     val context = LocalContext.current
-    // Kita panggil Repo Fisik disini cuma buat pinjam fungsi syncFcmToken-nya
+
     val repo = remember { FisikRepository(context) }
     val scope = rememberCoroutineScope()
 
-    // =========================================================
-    // ✅ 2. LOGIKA AUTO-SYNC TOKEN (JALAN SAAT APLIKASI DIBUKA)
-    // =========================================================
     LaunchedEffect(Unit) {
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             if (!token.isNullOrEmpty()) {
                 android.util.Log.d("FCM_TOKEN", "🏠 MainScreen: Token HP Ditemukan: $token")
                 scope.launch {
-                    repo.syncFcmToken(token) // Kirim ke Backend
+                    repo.syncFcmToken(token)
                 }
             }
         }.addOnFailureListener {
             android.util.Log.e("FCM_TOKEN", "🏠 MainScreen: Gagal ambil token")
         }
     }
-    // =========================================================
 
-
-    // NavController untuk bottom navigation
     val bottomNavController = rememberNavController()
 
     Scaffold(
@@ -74,38 +65,18 @@ fun MainScreen(parentNavController: NavHostController) {
                 navController = bottomNavController,
                 startDestination = "home"
             ) {
-
-                // ============================
-                // HOME
-                // ============================
                 composable("home") {
                     HomeScreen(navController = parentNavController)
                 }
-
-                // ============================
-                // EDUCATION (sub-nav)
-                // ============================
                 composable("education") {
                     EducationNavGraph()
                 }
-
-                // ============================
-                // MENTAL
-                // ============================
                 composable("mental") {
                     MentalNavGraph(parentNavController = bottomNavController)
                 }
-
-                // ============================
-                // PHYSICAL
-                // ============================
                 composable("physical") {
                     PhysicalHealthScreen(parentNavController = bottomNavController)
                 }
-
-                // ============================
-                // ARTICLE DETAIL (BACKEND)
-                // ============================
                 composable(
                     route = "article_detail/{articleId}",
                     arguments = listOf(

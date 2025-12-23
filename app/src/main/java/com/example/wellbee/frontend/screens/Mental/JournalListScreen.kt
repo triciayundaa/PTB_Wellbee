@@ -35,16 +35,13 @@ fun JournalListScreen(navController: NavHostController) {
     val context = LocalContext.current
     val dao = remember { AppDatabase.getInstance(context).mentalDao() }
     val scope = rememberCoroutineScope()
-    
-    // Mengambil data jurnal dari database
+
     val journals by dao.observeJournalsByUser(userId = 1).collectAsState(initial = emptyList())
 
-    // State untuk pencarian, delete, dan filter tanggal
     var searchQuery by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf<Int?>(null) }
     var selectedFilterDate by remember { mutableStateOf<String?>(null) }
 
-    // Date Picker Dialog untuk filter
     val calendar = Calendar.getInstance()
     val datePickerDialog = DatePickerDialog(
         context,
@@ -58,17 +55,15 @@ fun JournalListScreen(navController: NavHostController) {
         calendar.get(Calendar.DAY_OF_MONTH)
     )
 
-    // Filter jurnal berdasarkan query pencarian DAN tanggal
     val filteredJournals = remember(journals, searchQuery, selectedFilterDate) {
         journals.filter { journal ->
-            // Filter berdasarkan tanggal jika ada
+
             val matchesDate = if (selectedFilterDate != null) {
                 journal.tanggal == selectedFilterDate
             } else {
                 true
             }
 
-            // Filter berdasarkan teks search
             val matchesSearch = if (searchQuery.isNotBlank()) {
                 (journal.triggerLabel?.contains(searchQuery, ignoreCase = true) == true) ||
                 (journal.isiJurnal.contains(searchQuery, ignoreCase = true)) ||
@@ -81,7 +76,7 @@ fun JournalListScreen(navController: NavHostController) {
         }
     }
 
-    // Pop-up Konfirmasi Hapus
+
     if (showDeleteDialog != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
@@ -114,7 +109,7 @@ fun JournalListScreen(navController: NavHostController) {
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -143,7 +138,7 @@ fun JournalListScreen(navController: NavHostController) {
             }
         }
 
-        // Search Bar
+
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -179,13 +174,13 @@ fun JournalListScreen(navController: NavHostController) {
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF105490)
                 )
-                // Filter by Date Button
+
                 Button(
                     onClick = { 
                         if (selectedFilterDate == null) {
                             datePickerDialog.show() 
                         } else {
-                            selectedFilterDate = null // Clear filter if clicked again
+                            selectedFilterDate = null
                         }
                     }, 
                     colors = ButtonDefaults.buttonColors(
@@ -246,8 +241,7 @@ fun JournalListScreen(navController: NavHostController) {
                                 modifier = Modifier.size(32.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
-                            
-                            // Column mengambil sisa ruang agar tombol hapus terdorong ke kanan
+
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = journal.triggerLabel ?: "No Title",
@@ -266,8 +260,7 @@ fun JournalListScreen(navController: NavHostController) {
                                     maxLines = 1
                                 )
                             }
-                            
-                            // Tombol Delete
+
                             IconButton(onClick = { showDeleteDialog = journal.id }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,

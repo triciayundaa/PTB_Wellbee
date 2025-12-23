@@ -4,10 +4,6 @@ import android.app.TimePickerDialog
 import android.content.Context
 import java.util.*
 
-/**
- * Komponen reusable TimePicker untuk aplikasi Wellbee.
- * Bisa dipakai di mana pun: SleepScreen, SportScreen, dsb.
- */
 fun showTimePicker(context: Context, onTimeSelected: (String) -> Unit) {
     val calendar = Calendar.getInstance()
     val hour = calendar.get(Calendar.HOUR_OF_DAY)

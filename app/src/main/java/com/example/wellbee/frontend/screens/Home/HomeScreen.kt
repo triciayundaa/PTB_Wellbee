@@ -14,37 +14,51 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.wellbee.data.FisikRepository
+import com.example.wellbee.data.viewmodel.FisikViewModel
+import com.example.wellbee.data.viewmodel.FisikViewModelFactory
 import com.example.wellbee.data.model.EducationViewModel
 import com.example.wellbee.data.model.PublicArticleDto
 import com.example.wellbee.frontend.components.ArticleCard
 import com.example.wellbee.ui.theme.BluePrimary
 import com.example.wellbee.ui.theme.GrayBackground
 import com.example.wellbee.ui.theme.WellbeeTheme
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.roundToInt
 
 @Composable
-fun HomeScreen(navController: NavHostController) {
-
+fun HomeScreen(
+    navController: NavHostController,
+    fisikViewModel: FisikViewModel = viewModel(
+        factory = FisikViewModelFactory(LocalContext.current)
+    )
+) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val scope = rememberCoroutineScope()
-
-    val fisikRepo = remember { FisikRepository(context) }
     val educationViewModel = remember { EducationViewModel(context) }
+    
+    val articles: List<PublicArticleDto> = educationViewModel.articles
+    val isLoadingEdu = educationViewModel.isLoading
+    val eduErrorMessage = educationViewModel.errorMessage
+    val bookmarks = educationViewModel.bookmarks
+    
+    LaunchedEffect(Unit) {
+        fisikViewModel.loadAllData()
+
+        educationViewModel.loadArticles()
+        educationViewModel.loadBookmarks()
+    }
+
+    val sportList by fisikViewModel.sportList.collectAsState()
+    val sleepList by fisikViewModel.sleepList.collectAsState()
+    val weightList by fisikViewModel.weightList.collectAsState()
 
     var sportDuration by remember { mutableStateOf("-") }
     var sportCalories by remember { mutableStateOf("Langkah") }
@@ -53,54 +67,27 @@ fun HomeScreen(navController: NavHostController) {
     var sleepDuration by remember { mutableStateOf("- Jam Tidur") }
     var sleepQuality by remember { mutableStateOf("Kualitas: -") }
 
-    val articles: List<PublicArticleDto> = educationViewModel.articles
-    val isLoading = educationViewModel.isLoading
-    val errorMessage = educationViewModel.errorMessage
-    val bookmarks = educationViewModel.bookmarks
-
-    LaunchedEffect(Unit) {
-        educationViewModel.loadArticles()
-        educationViewModel.loadBookmarks()
-    }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                scope.launch {
-                    try {
-                        val sportRes = fisikRepo.getSportHistory()
-                        val latestSport = sportRes.getOrNull()?.firstOrNull()
-                        if (latestSport != null) {
-                            sportDuration = "${latestSport.durasiMenit}"
-                            sportCalories = "${latestSport.kaloriTerbakar} kcal"
-                        } else {
-                            sportDuration = "0"
-                            sportCalories = "0 kcal"
-                        }
-
-                        val weightRes = fisikRepo.getWeightHistory()
-                        val latestWeight = weightRes.getOrNull()?.firstOrNull()
-                        if (latestWeight != null) {
-                            weightValue = "${latestWeight.beratBadan} kg"
-                            val bmiBulat = latestWeight.bmi.roundToInt()
-                            bmiValue = "BMI: $bmiBulat (${latestWeight.kategori})"
-                        }
-
-                        val sleepRes = fisikRepo.getSleepHistory()
-                        val latestSleep = sleepRes.getOrNull()?.firstOrNull()
-                        if (latestSleep != null) {
-                            sleepDuration = "${latestSleep.durasiTidur} Jam Tidur"
-                            sleepQuality = "Kualitas: ${latestSleep.kualitasTidur}/5"
-                        }
-                    } catch (e: Exception) {
-                        Log.e("HOME_DATA", "Gagal load data fisik", e)
-                    }
-                }
-            }
+    LaunchedEffect(sportList, sleepList, weightList) {
+        val latestSport = sportList.firstOrNull()
+        if (latestSport != null) {
+            sportDuration = "${latestSport.durasiMenit}"
+            sportCalories = "${latestSport.kaloriTerbakar} kcal"
+        } else {
+            sportDuration = "0"
+            sportCalories = "0 kcal"
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+
+        val latestWeight = weightList.firstOrNull()
+        if (latestWeight != null) {
+            weightValue = "${latestWeight.beratBadan} kg"
+            val bmiBulat = latestWeight.bmi.roundToInt()
+            bmiValue = "BMI: $bmiBulat (${latestWeight.kategori})"
+        }
+
+        val latestSleep = sleepList.firstOrNull()
+        if (latestSleep != null) {
+            sleepDuration = "${latestSleep.durasiTidur} Jam Tidur"
+            sleepQuality = "Kualitas: ${latestSleep.kualitasTidur}/5"
         }
     }
 
@@ -202,18 +189,17 @@ fun HomeScreen(navController: NavHostController) {
         )
 
         when {
-            isLoading -> {
+            isLoadingEdu -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = BluePrimary)
                 }
             }
-            errorMessage != null -> {
+            eduErrorMessage != null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(text = errorMessage, color = Color.Red)
+                    Text(text = eduErrorMessage, color = Color.Red)
                 }
             }
             else -> {
-                // 🔹 PERBAIKAN SORTING: Samakan dengan EducationScreen
                 val sortedArticles = remember(articles) {
                     articles.sortedWith(
                         compareByDescending<PublicArticleDto> { parseBackendDateToMillis(it.tanggal) }
@@ -226,9 +212,7 @@ fun HomeScreen(navController: NavHostController) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Ambil 3 teratas yang sudah disortir
                     items(sortedArticles.take(3), key = { "${it.jenis}_${it.id}" }) { article ->
-
                         val artikelTags = article.tag
                             ?.split(",")
                             ?.map { it.trim() }
@@ -265,7 +249,6 @@ fun HomeScreen(navController: NavHostController) {
     }
 }
 
-// 🔹 PERBAIKAN PARSER: Samakan list pattern dengan EducationScreen
 private fun parseBackendDateToMillis(raw: String?): Long {
     if (raw.isNullOrBlank()) return 0L
     val patterns = listOf(

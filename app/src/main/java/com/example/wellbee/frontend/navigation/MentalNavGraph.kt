@@ -35,7 +35,7 @@ fun MentalNavGraph(parentNavController: NavHostController) {
             JournalListScreen(navController = mentalNavController)
         }
 
-        // Updated route to accept ID
+
         composable(
             route = "detail_diary/{journalId}",
             arguments = listOf(navArgument("journalId") { type = NavType.IntType })

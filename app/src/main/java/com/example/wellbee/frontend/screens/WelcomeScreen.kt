@@ -56,15 +56,12 @@ fun WelcomeScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Jarak sedikit antara teks dan logo sesuai permintaan
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // --- PERBAIKAN: Memanggil file drawable yang bersih ---
                 Image(
-                    // Pastikan id ini merujuk ke file lebah putih Anda di drawable
                     painter = painterResource(id = R.drawable.logo),
                     contentDescription = "Wellbee Logo",
-                    modifier = Modifier.size(150.dp) // Ukuran logo agar pas
+                    modifier = Modifier.size(150.dp)
                 )
             }
 

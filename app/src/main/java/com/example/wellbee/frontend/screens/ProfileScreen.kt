@@ -35,19 +35,15 @@ import com.example.wellbee.data.model.ProfileViewModel
 fun ProfileScreen(navController: NavHostController) {
     val context = LocalContext.current
 
-    // Inisialisasi ViewModel dan Repository
     val viewModel = remember { ProfileViewModel(context) }
     val authRepository = remember { AuthRepository(context) }
 
-    // State untuk mengontrol kemunculan dialog logout
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // Mengambil data profil asli dari backend saat layar dibuka
     LaunchedEffect(Unit) {
         viewModel.fetchUserProfile()
     }
 
-    // --- DIALOG KONFIRMASI LOGOUT ---
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -62,7 +58,6 @@ fun ProfileScreen(navController: NavHostController) {
                     onClick = {
                         showLogoutDialog = false
                         authRepository.logout()
-                        // Navigasi ke Welcome dan bersihkan history
                         navController.navigate("welcome") {
                             popUpTo(0) { inclusive = true }
                         }
@@ -91,7 +86,6 @@ fun ProfileScreen(navController: NavHostController) {
                     )
                 },
                 navigationIcon = {
-                    // Tombol Back untuk kembali ke MainScreen
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
@@ -117,7 +111,6 @@ fun ProfileScreen(navController: NavHostController) {
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // FOTO PROFIL PERMANEN
             Box(
                 modifier = Modifier
                     .size(180.dp)
@@ -135,13 +128,11 @@ fun ProfileScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Loading Indicator saat mengambil data backend
             if (viewModel.isLoading) {
                 CircularProgressIndicator(color = Color(0xFF135D91))
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // Field Input (Data dinamis dari ProfileViewModel)
             ProfileInputField(
                 label = "Full Name",
                 value = viewModel.fullName
@@ -163,7 +154,6 @@ fun ProfileScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(50.dp))
 
-            // TOMBOL LOGOUT DENGAN KONFIRMASI
             Button(
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier

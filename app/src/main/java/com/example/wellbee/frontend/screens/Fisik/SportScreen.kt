@@ -1,6 +1,5 @@
 package com.example.wellbee.frontend.screens.Fisik
 
-
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -29,45 +28,43 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
-import com.example.wellbee.data.FisikRepository
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.wellbee.data.viewmodel.FisikViewModel
+import com.example.wellbee.data.viewmodel.FisikViewModelFactory
 import com.example.wellbee.data.model.SportRequest
 import com.example.wellbee.frontend.components.DateField
 import com.example.wellbee.frontend.components.showDatePicker
-import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
-fun SportScreen(navController: NavHostController) {
+fun SportScreen(
+    navController: NavHostController,
 
+    viewModel: FisikViewModel = viewModel(
+        factory = FisikViewModelFactory(LocalContext.current)
+    )
+) {
 
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
+    val isLoading by viewModel.isLoading.collectAsState()
 
     var jenisOlahraga by remember { mutableStateOf("") }
     var durasi by remember { mutableStateOf("") }
     var kalori by remember { mutableStateOf("") }
     var tanggal by remember { mutableStateOf("") }
 
-
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var fotoBase64 by remember { mutableStateOf<String?>(null) }
 
-
-    var isLoading by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
-
 
     val USER_WEIGHT_KG = 60.0
 
-
-    // DATE PICKER
     LaunchedEffect(showDatePicker) {
         if (showDatePicker) {
             showDatePicker(context) {
@@ -77,8 +74,6 @@ fun SportScreen(navController: NavHostController) {
         }
     }
 
-
-    // CAMERA LAUNCHER
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
@@ -88,33 +83,22 @@ fun SportScreen(navController: NavHostController) {
         }
     }
 
-
-    // CAMERA PERMISSION
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
             cameraLauncher.launch(null)
         } else {
-            Toast.makeText(
-                context,
-                "Izin kamera diperlukan",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(context, "Izin kamera diperlukan", Toast.LENGTH_SHORT).show()
         }
     }
 
-
-
-
-    // AUTO KALORI
     LaunchedEffect(jenisOlahraga, durasi) {
         val menit = durasi.toIntOrNull() ?: 0
         kalori = if (menit > 0)
             "${hitungKaloriTerbakar(jenisOlahraga, menit, USER_WEIGHT_KG).roundToInt()} kcal"
         else ""
     }
-
 
     Column(
         modifier = Modifier
@@ -124,7 +108,6 @@ fun SportScreen(navController: NavHostController) {
             .padding(16.dp)
     ) {
 
-
         Text(
             "Tambahkan Data Olahraga",
             fontSize = 18.sp,
@@ -132,15 +115,11 @@ fun SportScreen(navController: NavHostController) {
             color = Color(0xFF0E4DA4)
         )
 
-
         Spacer(Modifier.height(16.dp))
-
 
         DateField("Tanggal", tanggal) { showDatePicker = true }
 
-
         Spacer(Modifier.height(12.dp))
-
 
         OutlinedTextField(
             value = jenisOlahraga,
@@ -158,9 +137,7 @@ fun SportScreen(navController: NavHostController) {
             )
         )
 
-
         Spacer(Modifier.height(12.dp))
-
 
         OutlinedTextField(
             value = durasi,
@@ -178,9 +155,7 @@ fun SportScreen(navController: NavHostController) {
             )
         )
 
-
         Spacer(Modifier.height(12.dp))
-
 
         OutlinedTextField(
             value = kalori,
@@ -196,9 +171,7 @@ fun SportScreen(navController: NavHostController) {
             )
         )
 
-
         Spacer(Modifier.height(20.dp))
-
 
         Button(
             onClick = {
@@ -218,11 +191,7 @@ fun SportScreen(navController: NavHostController) {
             Text("📷 Ambil Foto", color = Color.White)
         }
 
-
-
-
         Spacer(Modifier.height(16.dp))
-
 
         imageUri?.let {
             Image(
@@ -235,17 +204,12 @@ fun SportScreen(navController: NavHostController) {
             )
         }
 
-
         Spacer(Modifier.height(20.dp))
-
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
 
-
             Button(
                 onClick = {
-                    // 🔥 CARA PINTAR: Kembali ke halaman AWAL (Dashboard) dari grafik navigasi ini
-                    // inclusive = false artinya halaman dashboardnya JANGAN ikut dibuang (tetap tampil)
                     navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
                 },
                 modifier = Modifier.weight(1f),
@@ -261,50 +225,27 @@ fun SportScreen(navController: NavHostController) {
                         return@Button
                     }
 
-
-                    val repo = FisikRepository(context)
-//                    val req = SportRequest(
-//                        jenisOlahraga,
-//                        durasi.toInt(),
-//                        kalori.replace(" kcal", "").toInt(),
-//                        fotoBase64,
-//                        tanggal
-//                    )
                     val req = SportRequest(
                         jenisOlahraga = jenisOlahraga,
                         durasiMenit = durasi.toInt(),
                         kaloriTerbakar = kalori.replace(" kcal", "").toInt(),
                         foto = fotoBase64,
-                        tanggal = tanggal // ⬅️ LANGSUNG KIRIM APA ADANYA
+                        tanggal = tanggal
                     )
 
-//                    val req = SportRequest(
-//                        jenisOlahraga,
-//                        durasi.toInt(),
-//                        kalori.replace(" kcal", "").toInt(),
-//                        fotoBase64,
-//                        formattedTanggal
-//                    )
+                    viewModel.catatOlahraga(
+                        req = req,
+                        onSuccess = {
+                            Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
 
-
-                    scope.launch {
-                        isLoading = true
-                        val result = repo.catatOlahraga(req)
-                        isLoading = false
-
-
-                        if (result.isSuccess) {
-                            Toast.makeText(context, "Berhasil disimpan", Toast.LENGTH_SHORT).show()
                             jenisOlahraga = ""
                             durasi = ""
                             kalori = ""
                             tanggal = ""
                             imageUri = null
                             fotoBase64 = null
-                        } else {
-                            Toast.makeText(context, "Gagal menyimpan", Toast.LENGTH_SHORT).show()
                         }
-                    }
+                    )
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0E4DA4))
@@ -318,23 +259,17 @@ fun SportScreen(navController: NavHostController) {
     }
 }
 
-
-/* ================== HELPERS ================== */
-
-
 fun saveImageToGallery(context: Context, bitmap: Bitmap): Uri {
     val file = File(context.getExternalFilesDir(null), "sport_${System.currentTimeMillis()}.jpg")
     FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it) }
     return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
 }
 
-
 fun bitmapToBase64(bitmap: Bitmap): String {
     val out = ByteArrayOutputStream()
     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
     return Base64.encodeToString(out.toByteArray(), Base64.DEFAULT)
 }
-
 
 fun hitungKaloriTerbakar(jenis: String, durasi: Int, berat: Double): Double {
     val met = when (jenis.lowercase()) {

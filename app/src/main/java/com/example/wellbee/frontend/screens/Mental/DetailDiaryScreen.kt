@@ -43,11 +43,10 @@ fun DetailDiaryScreen(
     var journal by remember { mutableStateOf<MentalJournalEntity?>(null) }
     var mood by remember { mutableStateOf<MentalMoodEntity?>(null) }
 
-    // Edit Mode State
     var isEditing by remember { mutableStateOf(false) }
     var editedContent by remember { mutableStateOf("") }
 
-    // Audio Player States
+
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
     
@@ -99,10 +98,10 @@ fun DetailDiaryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // TOMBOL BACK DIGANTI NAVIGASINYA KE JOURNAL LIST
+
                 IconButton(onClick = { 
                     navController.navigate("journal_list") {
-                        // Bersihkan stack agar tidak looping
+
                         popUpTo("journal_list") { inclusive = true }
                     }
                 }) {
@@ -122,14 +121,13 @@ fun DetailDiaryScreen(
 
                 Row {
                     if (isEditing) {
-                        // Cancel Button
+
                         IconButton(onClick = { 
                             isEditing = false 
-                            editedContent = item.isiJurnal // Reset content
+                            editedContent = item.isiJurnal
                         }) {
                             Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.White)
                         }
-                        // Save Button
                         IconButton(onClick = {
                             scope.launch {
                                 val updatedJournal = item.copy(isiJurnal = editedContent)
@@ -141,7 +139,7 @@ fun DetailDiaryScreen(
                             Icon(Icons.Default.Check, contentDescription = "Save", tint = Color.White)
                         }
                     } else {
-                        // Edit Button
+
                         IconButton(onClick = { isEditing = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
                         }
@@ -151,7 +149,7 @@ fun DetailDiaryScreen(
         }
 
         Column(modifier = Modifier.padding(20.dp)) {
-            // Tanggal
+
             Text(
                 text = item.tanggal,
                 color = Color.Gray,
@@ -159,7 +157,7 @@ fun DetailDiaryScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Mood Section
+
             mood?.let { m ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -187,7 +185,6 @@ fun DetailDiaryScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // Title
             Text(
                 text = item.triggerLabel ?: "No Title",
                 color = Color(0xFF105490),
@@ -196,7 +193,7 @@ fun DetailDiaryScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Foto
+
             if (!item.fotoPath.isNullOrEmpty()) {
                 val file = File(item.fotoPath)
                 if (file.exists()) {
@@ -212,7 +209,7 @@ fun DetailDiaryScreen(
                 }
             }
 
-            // Audio Player
+
             if (!item.audioPath.isNullOrEmpty()) {
                 val audioFile = File(item.audioPath)
                 if (audioFile.exists()) {
@@ -281,7 +278,7 @@ fun DetailDiaryScreen(
                 }
             }
 
-            // Isi Jurnal (Editable)
+
             if (isEditing) {
                 OutlinedTextField(
                     value = editedContent,

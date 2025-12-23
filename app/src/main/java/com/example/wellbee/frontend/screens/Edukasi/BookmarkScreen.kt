@@ -43,7 +43,6 @@ fun BookmarkScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Load data awal - Menggunakan repository yang sudah diperbaiki (Clear then Sync)
     LaunchedEffect(Unit) {
         viewModel.loadBookmarks()
     }
@@ -64,7 +63,6 @@ fun BookmarkScreen(
     var showSuccessDialog by remember { mutableStateOf(false) }
     var bookmarkPendingDelete by remember { mutableStateOf<BookmarkDto?>(null) }
 
-    // Hitung unread count secara reaktif dari state bookmarks
     val unreadCount = remember(bookmarks) { bookmarks.count { it.sudahDibaca == 0 } }
 
     Scaffold(
@@ -83,9 +81,7 @@ fun BookmarkScreen(
                 unreadCount = unreadCount
             )
 
-            // --- PERBAIKAN TAMPILAN LOADING ---
             if (isLoading) {
-                // Menggunakan Box agar loading berada di tengah layar konten
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -105,7 +101,7 @@ fun BookmarkScreen(
                     }
                 }
             } else if (bookmarks.isEmpty()) {
-                // Tampilan jika data kosong
+
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -117,10 +113,10 @@ fun BookmarkScreen(
                     )
                 }
             } else {
-                // Tampilan jika data berhasil dimuat
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp), // Beri padding agar lebih rapi
+                    contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
@@ -170,8 +166,6 @@ fun BookmarkScreen(
     }
 }
 
-/* ─── TOP BAR ─── */
-
 @Composable
 private fun BookmarkTopBar(navController: NavHostController?) {
     Surface(
@@ -219,8 +213,6 @@ private fun BookmarkTopBar(navController: NavHostController?) {
     }
 }
 
-/* ─── REMINDER CARD ─── */
-
 @Composable
 private fun ReminderCard(unreadCount: Int) {
     Card(
@@ -254,8 +246,6 @@ private fun ReminderCard(unreadCount: Int) {
         }
     }
 }
-
-/* ─── DIALOGS ─── */
 
 @Composable
 fun ConfirmDeleteDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {

@@ -5,8 +5,6 @@ import android.content.Context
 class AuthRepository(private val context: Context) {
     private val api = RetrofitClient.getInstance(context)
 
-    // Kita gunakan SharedPreferences langsung (cara Fathiya)
-    // karena kita perlu menyimpan User ID secara eksplisit.
     private val prefs = context.getSharedPreferences("wellbee_prefs", Context.MODE_PRIVATE)
 
     suspend fun login(email: String, pass: String): Result<String> {
@@ -15,10 +13,9 @@ class AuthRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
 
                 val token = response.body()!!.token
-                // PENTING: Ambil ID user untuk fitur Fathiya
+
                 val userId = response.body()!!.user?.id ?: -1
 
-                // Simpan Token DAN User ID ke memori HP
                 prefs.edit()
                     .putString("auth_token", token)
                     .putInt("user_id", userId)
@@ -48,12 +45,10 @@ class AuthRepository(private val context: Context) {
         }
     }
 
-    // Fungsi ini DIBUTUHKAN oleh fitur Fathiya (jangan dihapus)
     fun getUserId(): Int {
         return prefs.getInt("user_id", -1)
     }
 
-    // Fungsi Logout (dari kodemu, disesuaikan dengan prefs)
     fun logout() {
         prefs.edit().clear().apply()
     }

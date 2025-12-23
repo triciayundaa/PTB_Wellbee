@@ -21,13 +21,11 @@ class ReminderWorker(context: Context, params: WorkerParameters) : Worker(contex
 
     private fun triggerNotification() {
         val context = applicationContext
-        val channelId = "wellbee_fisik_channel" // ID Khusus Modul Fisik
+        val channelId = "wellbee_fisik_channel"
         val channelName = "Pengingat Aktivitas Fisik"
-        val notificationId = 101 // ID Unik untuk notifikasi ini
+        val notificationId = 101
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        // 1. Buat Notification Channel (Wajib untuk Android 8.0+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
@@ -39,7 +37,6 @@ class ReminderWorker(context: Context, params: WorkerParameters) : Worker(contex
             notificationManager.createNotificationChannel(channel)
         }
 
-        // 2. Intent agar saat notifikasi diklik, aplikasi terbuka ke MainActivity
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -51,19 +48,15 @@ class ReminderWorker(context: Context, params: WorkerParameters) : Worker(contex
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         )
 
-        // 3. Desain Notifikasi
         val notification = NotificationCompat.Builder(context, channelId)
-            // Gunakan icon default Android jika belum ada logo.
-            // Nanti ganti R.drawable.ic_dialog_info dengan logo Wellbee Anda.
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Sudah Olahraga Hari Ini? 🏃‍♂️")
             .setContentText("Jangan lupa catat aktivitas fisik & jam tidurmu hari ini di Wellbee!")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
-            .setAutoCancel(true) // Hilang saat diklik
+            .setAutoCancel(true)
             .build()
 
-        // 4. Tampilkan
         notificationManager.notify(notificationId, notification)
     }
 }

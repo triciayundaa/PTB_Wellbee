@@ -1,8 +1,5 @@
 package com.example.wellbee.data
 
-// ==========================================
-// 1. IMPORT (GABUNGAN DARI MAIN & FATHIYA & NAILAH)
-// ==========================================
 import com.example.wellbee.data.model.AddBookmarkRequest
 import com.example.wellbee.data.model.BookmarkListResponse
 import com.example.wellbee.data.model.CategoriesResponse
@@ -39,9 +36,6 @@ import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-// ==========================
-// 2. DATA CLASSES (AUTH - GABUNGAN)
-// ==========================
 data class LoginRequest(
     val email: String,
     val password: String
@@ -57,7 +51,7 @@ data class UserData(
     val id: Int,
     val username: String,
     val email: String,
-    val phone: String? = null // Digabungkan (Nullable biar aman)
+    val phone: String? = null
 )
 
 data class RegisterRequest(
@@ -71,9 +65,6 @@ data class RegisterResponse(
     val message: String
 )
 
-// =======================
-// MENTAL MODELS (PUNYA NAILAH)
-// =======================
 data class MoodRequest(
     val userId: Int,
     val emoji: String,
@@ -87,13 +78,10 @@ data class JournalRequest(
     val triggerLabel: String? = null,
     val isiJurnal: String,
     val foto: String? = null,
-    val audio: String? = null, // [BARU] Tambahkan ini agar audio terkirim ke backend
+    val audio: String? = null,
     val tanggal: String? = null
 )
 
-// =======================
-// GENERAL API RESPONSE
-// =======================
 data class ApiResponse<T>(
     val status: String,
     val data: T? = null,
@@ -104,14 +92,7 @@ data class InsertResponse(
     val id: Int
 )
 
-// ==========================
-// 3. INTERFACE API SERVICE (FINAL)
-// ==========================
 interface ApiService {
-
-    // ==========================
-    // AUTHENTICATION
-    // ==========================
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
@@ -126,9 +107,6 @@ interface ApiService {
         @Body request: ResetPasswordRequest
     ): Response<MessageResponse>
 
-    // ==========================
-    // FISIK - OLAHRAGA (SPORT)
-    // ==========================
     @POST("api/fisik/olahraga")
     suspend fun catatOlahraga(@Body req: SportRequest): Response<SportResponse>
 
@@ -151,9 +129,6 @@ interface ApiService {
     @POST("api/fisik/fcm-token")
     suspend fun updateFcmToken(@Body body: Map<String, String>): Response<Any>
 
-    // ==========================
-    // FISIK - TIDUR (SLEEP)
-    // ==========================
     @POST("api/fisik/sleep")
     suspend fun catatTidur(@Body req: SleepRequest): Response<SleepResponse>
 
@@ -172,9 +147,7 @@ interface ApiService {
     @GET("api/fisik/sleep/weekly")
     suspend fun getWeeklySleep(): Response<WeeklySportChartResponse>
 
-    // ==========================
-    // FISIK - BERAT BADAN (WEIGHT)
-    // ==========================
+
     @POST("api/fisik/weight")
     suspend fun catatWeight(
         @Body req: WeightRequest
@@ -192,9 +165,7 @@ interface ApiService {
         @Body req: WeightRequest
     ): Response<Unit>
 
-    // ==========================
-    // EDUKASI - ARTIKEL (PUBLIK)
-    // ==========================
+
     @GET("api/edukasi/articles")
     suspend fun getPublicArticles(
         @Query("search") search: String? = null
@@ -209,9 +180,7 @@ interface ApiService {
         @Part gambar: MultipartBody.Part
     ): Response<UploadImageResponse>
 
-    // ==========================
-    // EDUKASI - ARTIKEL SAYA (MY ARTICLES)
-    // ==========================
+
     @POST("api/edukasi/my-articles")
     suspend fun createMyArticle(
         @Body request: CreateArticleRequest
@@ -243,9 +212,7 @@ interface ApiService {
         @Part gambar: MultipartBody.Part?
     ): UpdateMyArticleResponse
 
-    // ==========================
-    // EDUKASI - BOOKMARK
-    // ==========================
+
     @GET("api/edukasi/bookmarks")
     suspend fun getBookmarks(): BookmarkListResponse
 
@@ -264,15 +231,9 @@ interface ApiService {
         @Path("id") bookmarkId: Int
     ): MessageResponse
 
-    // =======================
-    // MENTAL - MOOD (NAILAH)
-    // =======================
     @POST("api/mental/mood")
     suspend fun postMood(@Body request: MoodRequest): Response<ApiResponse<InsertResponse>>
 
-    // =======================
-    // MENTAL - JURNAL (NAILAH)
-    // =======================
     @POST("api/mental/jurnal")
     suspend fun postJournal(@Body request: JournalRequest): Response<ApiResponse<InsertResponse>>
 }

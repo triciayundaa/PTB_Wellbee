@@ -1,6 +1,5 @@
 package com.example.wellbee.frontend.screens.Edukasi
 
-// Model data artikel edukasi
 data class ArticleData(
     val id: String,
     val title: String,
@@ -10,7 +9,7 @@ data class ArticleData(
     val content: String
 )
 
-// Sumber data dummy (sementara hardcode)
+
 object EducationArticles {
     val articles = listOf(
         ArticleData(

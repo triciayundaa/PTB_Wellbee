@@ -36,30 +36,29 @@ fun NavGraph(navController: NavHostController) {
     val context = LocalContext.current
     val sessionManager = SessionManager(context)
 
-    // Tentukan startDestination secara dinamis berdasarkan status login
     val startDest = if (sessionManager.isLoggedIn()) "main" else "welcome"
 
     NavHost(
         navController = navController,
         startDestination = startDest
     ) {
-        // --- AUTH SCREENS ---
+
         composable("welcome") { WelcomeScreen(navController) }
         composable("register") { RegisterScreen(navController) }
         composable("login") { LoginScreen(navController) }
         composable("reset_password") { ResetPasswordScreen(navController) }
 
-        // --- MAIN SCREEN (Dashboard) ---
+
         composable("main") {
             MainScreen(parentNavController = navController)
         }
 
-        // --- PROFILE SCREEN ---
+
         composable("profile") {
             ProfileScreen(navController = navController)
         }
 
-        // --- RUTE KHUSUS NOTIFIKASI FISIK (FIXED: ANTI CRASH & TAMPILAN BENAR) ---
+
         composable("global_sport_screen") {
             val localNavController = androidx.navigation.compose.rememberNavController()
 
@@ -83,7 +82,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // --- RUTE KHUSUS NOTIFIKASI MENTAL (PENTING AGAR TIDAK CRASH SAAT KLIK NOTIF) ---
+
         composable(
             route = "detail_diary/{journalId}",
             arguments = listOf(navArgument("journalId") { type = NavType.IntType })
@@ -99,7 +98,7 @@ fun NavGraph(navController: NavHostController) {
             JournalListScreen(navController = navController)
         }
 
-        // --- 🛡️ JARING PENGAMAN NAVBAR (ANTI CRASH) ---
+
         composable("home") {
             LaunchedEffect(Unit) {
                 navController.navigate("main") {
@@ -126,7 +125,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // --- DETAIL ARTIKEL (GLOBAL ROUTE) ---
+
         composable(
             route = "article_detail/{articleId}?source={source}",
             arguments = listOf(

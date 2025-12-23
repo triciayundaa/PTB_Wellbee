@@ -25,15 +25,12 @@ fun EducationNavGraph() {
     val eduNavController: NavHostController = rememberNavController()
     val context = LocalContext.current
 
-    // 🔹 ViewModel di-share untuk seluruh alur pembuatan artikel
     val sharedViewModel = remember { EducationViewModel(context) }
 
     NavHost(
         navController = eduNavController,
         startDestination = "education_list"
     ) {
-
-        /* ───────────── LIST / BOOKMARK / ARTIKEL SAYA ───────────── */
 
         composable("education_list") {
             EducationScreen(navController = eduNavController, viewModel = sharedViewModel)
@@ -47,9 +44,6 @@ fun EducationNavGraph() {
             MyArticlesScreen(navController = eduNavController, viewModel = sharedViewModel)
         }
 
-        /* ───────────── FLOW BUAT / EDIT ARTIKEL ───────────── */
-
-        // STEP 1 — META
         composable(
             route = "create_article_meta?articleId={articleId}",
             arguments = listOf(
@@ -69,8 +63,6 @@ fun EducationNavGraph() {
             )
         }
 
-        // STEP 2 — CONTENT
-        // 🔹 PERBAIKAN: Parameter navigasi dibuat opsional karena data utama ada di ViewModel
         composable(
             route = "create_article_content?articleId={articleId}",
             arguments = listOf(
@@ -85,14 +77,12 @@ fun EducationNavGraph() {
                 navController = eduNavController,
                 viewModel = sharedViewModel,
                 articleId = backStackEntry.arguments?.getString("articleId"),
-                // Parameter kategori dll tidak perlu dikirim lewat URL lagi karena sudah ada di sharedViewModel
                 category = sharedViewModel.draftCategory,
                 readTime = sharedViewModel.draftReadTime,
                 tag = sharedViewModel.draftTag
             )
         }
 
-        // STEP 3 — PREVIEW
         composable(
             route = "create_article_preview?articleId={articleId}",
             arguments = listOf(
@@ -107,7 +97,6 @@ fun EducationNavGraph() {
                 navController = eduNavController,
                 viewModel = sharedViewModel,
                 articleId = backStackEntry.arguments?.getString("articleId"),
-                // Mengambil data langsung dari draf ViewModel
                 category = sharedViewModel.draftCategory,
                 readTime = sharedViewModel.draftReadTime,
                 tag = sharedViewModel.draftTag,
@@ -115,8 +104,6 @@ fun EducationNavGraph() {
                 content = sharedViewModel.draftContent
             )
         }
-
-        /* ───────────── DETAIL ARTIKEL (BACKEND) ───────────── */
 
         composable(
             route = "article_detail/{articleId}?source={source}",

@@ -26,7 +26,6 @@ fun PhysicalHealthHeader(
     currentTab: String
 ) {
     Column {
-        // Header atas (judul dan tombol Riwayat)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -59,7 +58,6 @@ fun PhysicalHealthHeader(
             }
         }
 
-        // Bar tab (Sport, Sleep, Berat Badan)
         Row(
             modifier = Modifier
                 .fillMaxWidth()

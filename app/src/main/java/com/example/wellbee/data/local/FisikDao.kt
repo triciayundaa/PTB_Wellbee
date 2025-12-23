@@ -8,11 +8,6 @@ import androidx.room.Query
 @Dao
 interface FisikDao {
 
-    // =================================================
-    // SPORT
-    // =================================================
-
-    // 🔥 UBAH: ORDER BY tanggal DESC (Karena localId sudah dihapus)
     @Query("""
         SELECT * FROM sport_history
         WHERE userId = :userId
@@ -23,7 +18,6 @@ interface FisikDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSport(sport: SportEntity)
 
-    // 🔥 BARU: Insert Banyak Sekaligus (Optimasi)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllSport(sports: List<SportEntity>)
 
@@ -48,12 +42,6 @@ interface FisikDao {
         endDate: String
     ): List<DailySportSum>
 
-
-    // =================================================
-    // SLEEP
-    // =================================================
-
-    // 🔥 UBAH: ORDER BY tanggal DESC
     @Query("""
         SELECT * FROM sleep_history
         WHERE userId = :userId
@@ -64,17 +52,11 @@ interface FisikDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSleep(sleep: SleepEntity)
 
-    // 🔥 BARU: Insert Banyak Sekaligus
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllSleep(sleeps: List<SleepEntity>)
 
     @Query("DELETE FROM sleep_history WHERE id = :id")
     suspend fun deleteSleep(id: Int)
-
-
-    // =================================================
-    // WEIGHT
-    // =================================================
 
     @Query("""
        SELECT * FROM weight_history
@@ -86,7 +68,6 @@ interface FisikDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWeight(weight: WeightEntity)
 
-    // 🔥 BARU: Insert Banyak Sekaligus
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllWeight(weights: List<WeightEntity>)
 

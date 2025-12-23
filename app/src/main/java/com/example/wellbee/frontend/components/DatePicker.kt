@@ -10,7 +10,7 @@ fun showDatePicker(context: Context, onDateSelected: (String) -> Unit) {
     val dialog = DatePickerDialog(
         context,
         { _, year, month, day ->
-            // Format MySQL yg benar → yyyy-MM-dd
+
             val mysqlDate = String.format("%04d-%02d-%02d", year, month + 1, day)
             onDateSelected(mysqlDate)
         },

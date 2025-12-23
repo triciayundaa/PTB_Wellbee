@@ -24,7 +24,6 @@ class ProfileViewModel(context: Context) : ViewModel() {
                     val userData = response.body()!!
                     fullName = userData.username
                     email = userData.email
-                    // 🔹 Ambil data phone (pastikan UserData di ApiService sudah punya field phone)
                     phoneNumber = userData.phone ?: "Tidak ada nomor"
                 } else {
                     fullName = "Gagal memuat"

@@ -27,9 +27,6 @@ class EducationRepository(private val context: Context) {
         }
     }
 
-    // ==========================
-    // ARTIKEL PUBLIK (FIXED LOGIC)
-    // ==========================
     suspend fun getPublicArticles(search: String? = null): List<PublicArticleDto> {
         val keyword = search?.trim().orEmpty()
 
@@ -37,10 +34,8 @@ class EducationRepository(private val context: Context) {
             val response = api.getPublicArticles()
             val fixed = response.articles.map { it.copy(gambarUrl = fixImageUrl(it.gambarUrl)) }
 
-            // Simpan ke Room
             artikelDao.clearAndInsert(fixed.map { it.toEntity() })
 
-            // AMBIL KEMBALI DARI ROOM (Agar urutan DESC dari SQL Aktif)
             val entities = if (keyword.isNotBlank()) {
                 artikelDao.searchOnce(keyword)
             } else {
@@ -49,7 +44,7 @@ class EducationRepository(private val context: Context) {
             entities.map { it.toDto() }
 
         } catch (e: Exception) {
-            // OFFLINE MODE
+
             val cached = if (keyword.isNotBlank()) {
                 artikelDao.searchOnce(keyword)
             } else {
@@ -67,7 +62,6 @@ class EducationRepository(private val context: Context) {
         }
     }
 
-    // --- BOOKMARK LOGIC (Tetap Sama) ---
     private suspend fun syncPendingDeletes() {
         val pendingIds = bookmarkDao.getPendingDeleteIds()
         if (pendingIds.isEmpty()) return
@@ -119,7 +113,6 @@ class EducationRepository(private val context: Context) {
         } catch (e: Exception) { "Offline" }
     }
 
-    // --- UPLOAD & MY ARTICLES (Tetap Sama) ---
     suspend fun uploadImage(imageUri: Uri): String {
         val stream = context.contentResolver.openInputStream(imageUri) ?: throw Exception("Fail")
         val bytes = stream.readBytes()

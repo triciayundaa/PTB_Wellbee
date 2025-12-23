@@ -30,10 +30,8 @@ fun RegisterScreen(navController: NavHostController) {
 
     var isLoading by remember { mutableStateOf(false) }
 
-    // Warna
     val BluePrimary = Color(0xFF0E4DA4)
 
-    // 🔥 Style Input Form (Hitam & Biru)
     val inputColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = BluePrimary,
         unfocusedBorderColor = Color.Black,
@@ -47,7 +45,7 @@ fun RegisterScreen(navController: NavHostController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White) // 🔥 Background Putih
+            .background(Color.White)
             .padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
@@ -55,7 +53,6 @@ fun RegisterScreen(navController: NavHostController) {
         Text("Create an Account", style = MaterialTheme.typography.headlineSmall, color = Color.Black, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
 
-        // Input Fields
         OutlinedTextField(
             value = name, onValueChange = { name = it },
             label = { Text("Full Name (Username)") },
@@ -95,7 +92,6 @@ fun RegisterScreen(navController: NavHostController) {
 
         Spacer(Modifier.height(24.dp))
 
-        // Tombol Register
         Button(
             onClick = {
                 if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
@@ -121,7 +117,7 @@ fun RegisterScreen(navController: NavHostController) {
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading,
             colors = ButtonDefaults.buttonColors(
-                containerColor = BluePrimary, // 🔥 Tombol Biru
+                containerColor = BluePrimary,
                 contentColor = Color.White
             )
         ) {

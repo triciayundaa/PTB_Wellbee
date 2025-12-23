@@ -48,7 +48,7 @@ fun ArticleDetailScreen(
     authorName: String? = null,
     uploadedDate: String? = null
 ) {
-    // Format tanggal
+
     val tanggalText: String = remember(uploadedDate) {
         formatDateOnly(uploadedDate)
     }
@@ -60,7 +60,7 @@ fun ArticleDetailScreen(
                 onBackClick = { navController.popBackStack() }
             )
         },
-        containerColor = GrayBackground // Menggunakan abu-abu muda di luar Card
+        containerColor = GrayBackground
     ) { padding ->
 
         Column(
@@ -69,7 +69,7 @@ fun ArticleDetailScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // --- KONTEN UTAMA DALAM CARD ---
+
             Card(
                 shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -77,7 +77,7 @@ fun ArticleDetailScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column {
-                    // 1. Gambar Utama dengan Clip Melengkung di Bawah
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -99,11 +99,10 @@ fun ArticleDetailScreen(
                         )
                     }
 
-                    // 2. Konten Teks
                     Column(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
                     ) {
-                        // Kategori & Waktu Baca
+
                         Text(
                             text = "${category.uppercase()} • $readTime",
                             fontSize = 12.sp,
@@ -114,18 +113,18 @@ fun ArticleDetailScreen(
 
                         Spacer(Modifier.height(12.dp))
 
-                        // Judul Besar
+
                         Text(
                             text = title,
                             fontSize = 26.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF1B3B6B), // Warna biru gelap yang elegan
+                            color = Color(0xFF1B3B6B),
                             lineHeight = 34.sp
                         )
 
                         Spacer(Modifier.height(20.dp))
 
-                        // Penulis & Tanggal (Metadata Box)
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -159,7 +158,6 @@ fun ArticleDetailScreen(
                         HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
                         Spacer(Modifier.height(24.dp))
 
-                        // Isi Artikel
                         Text(
                             text = content,
                             fontSize = 16.sp,
@@ -176,13 +174,12 @@ fun ArticleDetailScreen(
     }
 }
 
-/* ─────────────────────── FORMAT TANGGAL ─────────────────────── */
 
 private fun formatDateOnly(raw: String?): String {
     if (raw.isNullOrBlank()) return "Baru saja"
 
     return try {
-        // Coba parse ISO format dari backend
+
         val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }
@@ -192,12 +189,10 @@ private fun formatDateOnly(raw: String?): String {
 
         if (date != null) outFormat.format(date) else raw.take(10)
     } catch (e: Exception) {
-        // Fallback jika format berbeda
+
         raw.take(10)
     }
 }
-
-/* ─────────────────────── PREVIEW ─────────────────────── */
 
 @Preview(showBackground = true)
 @Composable

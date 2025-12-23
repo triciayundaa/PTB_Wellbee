@@ -11,7 +11,6 @@ interface ArtikelDao {
     @Query("SELECT * FROM artikel ORDER BY tanggalEpoch DESC")
     suspend fun getAllOnce(): List<ArtikelEntity>
 
-    // Pastikan pakai DESC di sini juga
     @Query("""
         SELECT * FROM artikel
         WHERE (judul LIKE '%' || :keyword || '%'

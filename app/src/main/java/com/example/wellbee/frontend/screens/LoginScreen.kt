@@ -26,13 +26,11 @@ fun LoginScreen(navController: NavHostController) {
     val scope = rememberCoroutineScope()
     val authRepo = AuthRepository(context)
 
-    // Warna Konsisten
     val BluePrimary = Color(0xFF0E4DA4)
 
-    // 🔥 Style Input Form (Agar tidak abu-abu)
     val inputColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = BluePrimary,
-        unfocusedBorderColor = Color.Black, // Hitam saat tidak diklik
+        unfocusedBorderColor = Color.Black,
         focusedLabelColor = BluePrimary,
         unfocusedLabelColor = Color.Black,
         cursorColor = BluePrimary,
@@ -43,7 +41,7 @@ fun LoginScreen(navController: NavHostController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White) // 🔥 Background Putih
+            .background(Color.White)
             .padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
@@ -58,7 +56,7 @@ fun LoginScreen(navController: NavHostController) {
             onValueChange = { email = it },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
-            colors = inputColors // 🔥 Terapkan warna
+            colors = inputColors
         )
 
         Spacer(Modifier.height(12.dp))
@@ -69,7 +67,7 @@ fun LoginScreen(navController: NavHostController) {
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            colors = inputColors // 🔥 Terapkan warna
+            colors = inputColors
         )
 
         Spacer(Modifier.height(8.dp))
@@ -102,7 +100,7 @@ fun LoginScreen(navController: NavHostController) {
             },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
-                containerColor = BluePrimary, // 🔥 Tombol Biru
+                containerColor = BluePrimary,
                 contentColor = Color.White
             )
         ) {

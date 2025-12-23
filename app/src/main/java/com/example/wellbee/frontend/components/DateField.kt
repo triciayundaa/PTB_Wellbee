@@ -19,7 +19,7 @@ fun DateField(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }   // klik di semua area
+            .clickable { onClick() }
     ) {
         OutlinedTextField(
             value = value,
