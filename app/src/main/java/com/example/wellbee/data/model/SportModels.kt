@@ -23,7 +23,7 @@ data class SportModel(
     val durasiMenit: Int,
     val kaloriTerbakar: Int,
     val tanggal: String,
-    val foto: String? = null   // ← WAJIB ADA
+    val foto: String? = null
 )
 
 data class SportHistory(
@@ -33,7 +33,7 @@ data class SportHistory(
     val durasiMenit: Int,
     val kaloriTerbakar: Int,
     val tanggal: String? = null,
-    val foto: String? = null   // ← WAJIB ADA & pakai koma
+    val foto: String? = null
 )
 
 data class SportDailyTotal(

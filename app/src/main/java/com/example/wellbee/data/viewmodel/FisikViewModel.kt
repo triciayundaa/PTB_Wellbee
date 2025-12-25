@@ -12,35 +12,26 @@ import kotlinx.coroutines.launch
 
 class FisikViewModel(private val repository: FisikRepository) : ViewModel() {
 
-    // ================= STATE (PENAMPUNG DATA) =================
-
-    // --- SPORT (OLAHRAGA) ---
     private val _sportList = MutableStateFlow<List<SportHistory>>(emptyList())
     val sportList: StateFlow<List<SportHistory>> = _sportList
 
     private val _sportChart = MutableStateFlow<FisikRepository.WeeklyChartData?>(null)
     val sportChart: StateFlow<FisikRepository.WeeklyChartData?> = _sportChart
 
-    // --- SLEEP (TIDUR) ---
     private val _sleepList = MutableStateFlow<List<SleepData>>(emptyList())
     val sleepList: StateFlow<List<SleepData>> = _sleepList
 
     private val _sleepChart = MutableStateFlow<FisikRepository.WeeklyChartData?>(null)
     val sleepChart: StateFlow<FisikRepository.WeeklyChartData?> = _sleepChart
 
-    // --- WEIGHT (BERAT BADAN) ---
     private val _weightList = MutableStateFlow<List<WeightData>>(emptyList())
     val weightList: StateFlow<List<WeightData>> = _weightList
 
-    // --- UMUM (LOADING & ERROR) ---
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
-
-    // ================= FUNGSI LOAD DATA (GET) =================
-    // Panggil fungsi ini di "LaunchedEffect" pada layar masing-masing
 
     fun loadAllData() {
         loadSportData()
@@ -51,12 +42,12 @@ class FisikViewModel(private val repository: FisikRepository) : ViewModel() {
     fun loadSportData() {
         viewModelScope.launch {
             _isLoading.value = true
-            // 1. Ambil List
+
             val resList = repository.getSportHistory()
             if (resList.isSuccess) {
                 _sportList.value = resList.getOrDefault(emptyList())
             }
-            // 2. Ambil Grafik
+
             val resChart = repository.getWeeklySportChartData()
             _sportChart.value = resChart
 
@@ -67,12 +58,11 @@ class FisikViewModel(private val repository: FisikRepository) : ViewModel() {
     fun loadSleepData() {
         viewModelScope.launch {
             _isLoading.value = true
-            // 1. Ambil List
+
             val resList = repository.getSleepHistory()
             if (resList.isSuccess) {
                 _sleepList.value = resList.getOrDefault(emptyList())
             }
-            // 2. Ambil Grafik
             val resChart = repository.getWeeklySleepChartData()
             _sleepChart.value = resChart
 
@@ -90,9 +80,6 @@ class FisikViewModel(private val repository: FisikRepository) : ViewModel() {
             _isLoading.value = false
         }
     }
-
-    // ================= FUNGSI INPUT DATA (POST) =================
-    // Panggil fungsi ini saat tombol "Simpan" ditekan
 
     fun catatOlahraga(req: SportRequest, onSuccess: () -> Unit) {
         viewModelScope.launch {
@@ -140,8 +127,6 @@ class FisikViewModel(private val repository: FisikRepository) : ViewModel() {
     }
 }
 
-// ================= FACTORY (WAJIB ADA) =================
-// Ini berfungsi agar ViewModel bisa mengakses Context (lewat Repository)
 class FisikViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(FisikViewModel::class.java)) {
